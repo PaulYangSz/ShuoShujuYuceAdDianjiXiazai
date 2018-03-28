@@ -99,3 +99,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+data/train.csv.zip
+data/train.csv
+data/test.csv.zip
+data/test.csv
