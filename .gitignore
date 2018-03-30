@@ -103,3 +103,11 @@ data/train.csv.zip
 data/train.csv
 data/test.csv.zip
 data/test.csv
+data/test_supplement.csv.zip
+data/test_supplement.csv
+data/sample_submission.csv.zip
+data/sample_submission.csv
+data/days/20171109.csv
+data/days/20171108.csv
+data/days/20171107.csv
+data/days/20171106.csv
