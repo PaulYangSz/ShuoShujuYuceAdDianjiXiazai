@@ -104,9 +104,8 @@ def split_train_by_day():
 def split_train_by_dayandtesttime():
     def check_in_test_time(item_time: datetime, _test_times):
         in_flag = False
-        delta = timedelta(10 - item_time.day)
         for i in range(0, 5, 2):
-            if _test_times[i] <= item_time + delta <= _test_times[i + 1]:
+            if _test_times[i] <= item_time <= _test_times[i + 1]:
                 in_flag = True
                 break
         return in_flag

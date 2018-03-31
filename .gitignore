@@ -111,3 +111,7 @@ data/days/20171109.csv
 data/days/20171108.csv
 data/days/20171107.csv
 data/days/20171106.csv
+data/day_with_test_hour/20171109_test_hour.csv
+data/day_with_test_hour/20171108_test_hour.csv
+data/day_with_test_hour/20171107_test_hour.csv
+data/day_with_test_hour/20171106_test_hour.csv
