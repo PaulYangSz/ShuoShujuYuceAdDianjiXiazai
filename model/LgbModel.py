@@ -17,6 +17,7 @@ from hyperopt import hp, fmin, tpe, Trials
 from hyperopt import space_eval
 from sklearn.metrics import classification_report
 from sklearn.model_selection import RandomizedSearchCV, GridSearchCV, StratifiedKFold, train_test_split, cross_val_score
+from sklearn.metrics import roc_auc_score
 import logging
 import logging.config
 
@@ -216,16 +217,29 @@ def grid_search_tuning_model(lgb_model, param_select: LgbSkParamSelect, sample_d
     return clf
 
 
-def use_best_pred_valid(best_model, sample_df, target_name, valid_ratio):
+def use_best_pred_valid(best_params_, sample_df, cv_, target_name):
     sample_X = sample_df.drop(target_name, axis=1)
     sample_y = sample_df[target_name]
 
-    X_train, X_valid, y_train, y_valid = train_test_split(sample_X, sample_y, test_size=valid_ratio, random_state=42)
+    Logger.info(f'使用最佳参数对每一个进行评估')
+    for train_idx, valid_idx in cv_:
+        train_X = sample_X.iloc[train_idx]
+        train_y = sample_y.iloc[train_idx]
+        valid_X = sample_X.iloc[valid_idx]
+        valid_y = sample_y.iloc[valid_idx]
+        best_model_ = lgb.LGBMClassifier(**best_params_)
+        best_model_.fit(X=train_X, y=train_y)
+        y_pred = best_model_.predict(valid_X)
+        y_prob = best_model_.predict_proba(valid_X)[:, 1]
+        auc_score = roc_auc_score(y_true=valid_y, y_score=y_prob)
+        Logger.info(f"This fold validation dataset auc_score = {auc_score}")
+        Logger.info(f'Precision, recall, f1-score:\n{classification_report(y_true=valid_y, y_pred=y_pred)}')
 
-    best_model.fit(X_train, y_train)
 
-    y_pred = best_model.predict(X_valid)
-    Logger.info(f'Precision, recall, f1-score:\n{classification_report(y_true=y_valid, y_pred=y_pred)}')
+def get_best_param_fitted_model(best_model, sample_df, target_name):
+    sample_X = sample_df.drop(target_name, axis=1)
+    sample_y = sample_df[target_name]
+    best_model.fit(X=sample_X, y=sample_y)
     return best_model
 
 
@@ -331,6 +345,8 @@ if __name__ == '__main__':
         if len(hp_params) == 0:
             print('Just use dedicated params to predict')
             best_params = param.space_dict
+            # Use best_params to predict validation data.
+            use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
         else:
             print('Use HyperOpt GridSearch to tuning')
             best_space, trial_history = hyperopt_tuning_model(lgb_model, param, sample_df, cv_iterable, target_name)
@@ -341,8 +357,8 @@ if __name__ == '__main__':
         # Get best params model
         best_model = lgb.LGBMClassifier(**best_params)
 
-    # Use best model to predict validation data.
-    lgb_model = use_best_pred_valid(best_model, sample_df, target_name, valid_ratio=0.1)
+    # Use best params to fit on sample dataset get LGB model
+    lgb_model = get_best_param_fitted_model(best_model, sample_df, target_name)
 
     # Show importance of features
     show_feature_importance(lgb_model, sample_df, target_name)
