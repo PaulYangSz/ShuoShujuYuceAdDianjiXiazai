@@ -319,7 +319,7 @@ def show_CV_result(search_clf, adjust_paras, classifi_scoring, output_file: bool
 if __name__ == '__main__':
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest')
-    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df()
+    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB")
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
     tuning_type = 'hp'  # 'sk' or 'hp'

@@ -93,7 +93,7 @@ class SelfLocalRegressor(BaseEstimator, RegressorMixin):
         if K.backend() == 'tensorflow':
             K.clear_session()
 
-    def get_embedding_mlp_model(self):
+    def get_embedding_mlp_model(self, dr: DataReader):
         # Inputs
         ip = Input(shape=[1], name="ip")
         app = Input(shape=[1], name='app')
@@ -103,10 +103,17 @@ class SelfLocalRegressor(BaseEstimator, RegressorMixin):
         click_time = Input(shape=[1], name='click_time')
 
         # Embedding all category input to vectors
+        # each int value must in [0, max_int)
+        emb_ip = Embedding(input_dim=dr.max_ip, output_dim=self.ip_dim)(ip)  # [None, STEPS, emb_size]
+        emb_app = Embedding(dr.max_app, self.app_dim)(app)
+        emb_device = Embedding(dr.max_device, self.device_dim)(device)
+        emb_os = Embedding(dr.max_os, self.os_dim)(os)
+        emb_channel = Embedding(dr.max_channel, self.channel_dim)(channel)
+        emb_click_time = Embedding(dr.max_click_time, self.click_time_dim)(click_time)
 
 
 if __name__ == "__main__":
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest')
-    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df()
+    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
 

@@ -86,6 +86,12 @@ class DataReader:
         self.int_cols = ['ip', 'app', 'device', 'os', 'channel', 'is_attributed']
         self.target = 'is_attributed'
         self.time_cols = ['click_time', 'attributed_time']
+        self.max_ip = -1
+        self.max_app = -1
+        self.max_device = -1
+        self.max_os = -1
+        self.max_channel = -1
+        self.max_click_time = -1
 
     def load_train(self):
         if self.file_from == 'by_day__by_test_time':
@@ -99,21 +105,25 @@ class DataReader:
     def load_test(self):
         self.test_df = pd.read_csv('../data/test.csv', dtype=DTYPES)
 
-    def construct_feats(self, data_df: pd.DataFrame):
+    def construct_feats(self, data_df: pd.DataFrame, model_name: str):
         if self.feats_construct == 'simplest':
             for col in self.int_cols:
                 if col in data_df.columns:
-                    data_df[col] = data_df[col].astype('category')
+                    if model_name in ["LGB"]:
+                        data_df[col] = data_df[col].astype('category')
+                    else:
+                        pass
             data_df['click_time'] = pd.to_datetime(data_df['click_time'])
             data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate('test_30mins', t))
-            data_df['click_time'] = data_df['click_time'].astype('category')
+            if model_name in ["LGB"]:
+                data_df['click_time'] = data_df['click_time'].astype('category')
             cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
                 else self.int_cols[:5] + ['click_time']
             return data_df[cols]
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
-    def get_train_feats_df(self):
+    def get_train_feats_df(self, model_name: str):
         with timer("Loading train csv files"):
             self.load_train()
         train_feat_df = pd.DataFrame()
@@ -121,9 +131,16 @@ class DataReader:
         for train_df in self.train_df_list:
             with timer(f"Construct train feats df<'{self.feats_construct}'>"):
                 each_len.append(train_df.shape[0])
-                train_feat_df = pd.concat([train_feat_df, self.construct_feats(train_df)], axis=0, ignore_index=True)
+                train_feat_df = pd.concat([train_feat_df, self.construct_feats(train_df, model_name)], axis=0, ignore_index=True)
                 del train_df
                 gc.collect()
+        if model_name in ["MLP"]:
+            self.max_ip = train_feat_df['ip'].max()
+            self.max_app = train_feat_df['app'].max()
+            self.max_device = train_feat_df['device'].max()
+            self.max_os = train_feat_df['os'].max()
+            self.max_channel = train_feat_df['channel'].max()
+            self.max_click_time = train_feat_df['click_time'].max()
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         index_start = 0
@@ -134,11 +151,18 @@ class DataReader:
             index_start += len_
         return train_feat_df, cv_index_list, self.target
 
-    def get_test_feats_df(self):
+    def get_test_feats_df(self, model_name: str):
         with timer("Loading test csv file"):
             self.load_test()
         with timer(f"Construct test feats df<'{self.feats_construct}'>"):
-            test_df = self.construct_feats(self.test_df)
+            test_df = self.construct_feats(self.test_df, model_name)
+            if model_name in ["MLP"]:
+                self.max_ip = test_df['ip'].max() if test_df['ip'].max() > self.max_ip else self.max_ip
+                self.max_app = test_df['app'].max() if test_df['app'].max() > self.max_app else self.max_app
+                self.max_device = test_df['device'].max() if test_df['device'].max() > self.max_device else self.max_device
+                self.max_os = test_df['os'].max() if test_df['os'].max() > self.max_os else self.max_os
+                self.max_channel = test_df['channel'].max() if test_df['channel'].max() > self.max_channel else self.max_channel
+                self.max_click_time = test_df['click_time'].max() if test_df['click_time'].max() > self.max_click_time else self.max_click_time
             del self.test_df
             gc.collect()
         return test_df
