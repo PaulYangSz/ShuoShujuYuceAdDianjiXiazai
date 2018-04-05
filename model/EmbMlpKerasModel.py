@@ -109,12 +109,12 @@ class EmbMlpSkParamSelect():
                 'os_dim': [20],  # 20 + hp.randint('os_dim', 100),
                 'channel_dim': [20],  # 20 + hp.randint('channel_dim', 100),
                 'click_time_dim': [10],  # 20 + hp.randint('click_time_dim', 100),
-                'bn_flag': [True, False],
+                'bn_flag': [True],
                 'dense_layers_unit': [(128, 64)],  # hp.choice('dense_layers_unit', [(128, 64)]),
                 'drop_out': [(0.2, 0.2)],  # hp.choice('drop_out', [(0.2, 0.2)]),
                 'active': [('relu', 'relu')],  # hp.choice('active', [('relu', 'relu')]),
                 'epochs': [2],  # hp.choice('epochs', [1, 2, 3]),
-                'batch_size': [512 * 3],  # hp.quniform('reg_lambda', 0.0, 1.0, 0.01),
+                'batch_size': [512 * 12],  # hp.quniform('reg_lambda', 0.0, 1.0, 0.01),
                 'lr_init': [0.015],  # hp.quniform('lr_init', 0.01, 0.04, 0.001),
                 'lr_final': [0.007],  # hp.quniform('lr_final', 0.001, 0.01, 0.001),
             }
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
-    tuning_type = 'hp'  # 'sk' or 'hp'
+    tuning_type = 'sk'  # 'sk' or 'hp'
 
     # Define model and tuning
     if tuning_type == 'sk':
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
 
     # Generate the test_result
-    file_name = "../output/emb_mlp_sub.csv"
+    file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%M.%d-%H%M"))
     save_test_result(fitted_model, test_df, file_name)
 
 
