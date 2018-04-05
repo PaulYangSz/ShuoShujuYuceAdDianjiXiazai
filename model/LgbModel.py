@@ -59,7 +59,7 @@ class LgbHpParamSelect():
         if space_name == "default":
             self.name = space_name
             self.space_dict = {
-                'num_leaves': 12,  # 2 + hp.randint('num_leaves', 20),
+                'num_leaves': 2 + hp.randint('num_leaves', 20),
                 'max_depth': -1,  # hp.choice('max_depth', [-1])
                 'learning_rate': 0.02,  # hp.quniform('learning_rate', 0.001, 0.04, 0.001),
                 'n_estimators': 60,  # (1 + hp.randint('n_estimators', 9)) * 10,
@@ -122,7 +122,7 @@ g_eval_I = 0
 g_HP_SCORE = 99999.9
 g_BEST_ITER = 0
 g_BEST_PARAM = ''
-def hyperopt_tuning_model(lgb_model, param_select: LgbHpParamSelect, sample_df_, cv_, target_name):
+def hyperopt_tuning_model(base_model, param_select, sample_df_, cv_, target_name):
     sample_X = sample_df_.drop(target_name, axis=1)
     sample_y = sample_df_[target_name]
 
@@ -130,8 +130,8 @@ def hyperopt_tuning_model(lgb_model, param_select: LgbHpParamSelect, sample_df_,
         global g_eval_I, g_HP_SCORE, g_BEST_PARAM, g_BEST_ITER
         g_eval_I += 1
         with timer("Calc HP_score(cross_val_score)"):
-            lgb_model.set_params(**params)
-            score = cross_val_score(lgb_model, sample_X, sample_y, cv=cv_, scoring='roc_auc', n_jobs=1)
+            base_model.set_params(**params)
+            score = cross_val_score(base_model, sample_X, sample_y, cv=cv_, scoring='roc_auc', n_jobs=1)
             dict_str = get_dict_string(params)
             hp_score = 1 - score.mean()
             if hp_score < g_HP_SCORE:
@@ -149,7 +149,7 @@ def hyperopt_tuning_model(lgb_model, param_select: LgbHpParamSelect, sample_df_,
     best = fmin(objective,
                 param_select.space_dict,
                 algo=tpe.suggest,
-                max_evals=5000,  # Allow up to this many function evaluations before returning.
+                max_evals=2,  # Allow up to this many function evaluations before returning.
                 trials=trials,
                 verbose=100)  # no real effect
     return best, trials
@@ -189,27 +189,29 @@ def show_hp_result(best_space_, trial_history_: Trials, hp_param_space, ouput_fi
     return best_params
 
 
-def grid_search_tuning_model(lgb_model, param_select: LgbSkParamSelect, sample_df, cv_: list, target_name, search_switch):
+def grid_search_tuning_model(base_model, param_select, sample_df, cv_: list, target_name, search_switch):
     sample_X = sample_df.drop(target_name, axis=1)
     sample_y = sample_df[target_name]
     print(f'search_switch={search_switch}')
 
     if search_switch == "grid_search":
-        clf = GridSearchCV(estimator=lgb_model,
+        clf = GridSearchCV(estimator=base_model,
                            param_grid=param_select.param_dict,
                            n_jobs=1,
                            cv=cv_,
                            scoring=param_select.classifier_score,
                            verbose=10,  # 2 print [CV] param and time, 10 add print score
+                           return_train_score=True,
                            refit=False)
     else:
-        clf = RandomizedSearchCV(estimator=lgb_model,
+        clf = RandomizedSearchCV(estimator=base_model,
                                  param_distributions=param_select.param_dict,
                                  n_iter=100,
                                  n_jobs=1,
                                  cv=cv_,
                                  scoring=param_select.classifier_score,
                                  verbose=10,  # 2 print [CV] param and time, 10 add print score
+                                 return_train_score=True,
                                  refit=False)
     clf.fit(sample_X, sample_y)
 
@@ -305,6 +307,8 @@ def show_CV_result(search_clf, adjust_paras, classifi_scoring, output_file: bool
             record_param_value = search_clf.cv_results_.get('params')[i].get(adjust_paras[0])
             if isinstance(record_param_value, tuple):
                 record_param_value = '{}'.format(reduce(lambda n_h, n_h1: str(n_h) + '_' + str(n_h1), record_param_value))
+            elif isinstance(record_param_value, bool):
+                record_param_value = str(record_param_value)
             every_para_score.loc[record_param_value] = search_clf.cv_results_.get('mean_test_score')[i]
         every_para_score.plot(kind='line', title=u'模型参数{}和评分{}的变化图示'.format(adjust_paras[0], classifi_scoring),
                               style='o-')
@@ -318,16 +322,16 @@ def show_CV_result(search_clf, adjust_paras, classifi_scoring, output_file: bool
 
 if __name__ == '__main__':
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest')
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest', verify_code=True)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB")
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
-    tuning_type = 'hp'  # 'sk' or 'hp'
+    tuning_type = 'sk'  # 'sk' or 'hp'
 
     # Define model and tuning
     lgb_model = lgb.LGBMClassifier()
     if tuning_type == 'sk':
-        print('Use sklearn GridSearch to tuning')
+        print('~Use sklearn GridSearch to tuning')
         param = LgbSkParamSelect("default")
         adjust_para_list = print_param(param)
         search_CV_model = grid_search_tuning_model(lgb_model, param, sample_df, cv_iterable, target_name,
@@ -343,12 +347,12 @@ if __name__ == '__main__':
         param = LgbHpParamSelect("default")
         hp_params = param.get_tuning_params()
         if len(hp_params) == 0:
-            print('Just use dedicated params to predict')
+            print('~Just use dedicated params to predict')
             best_params = param.space_dict
             # Use best_params to predict validation data.
             use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
         else:
-            print('Use HyperOpt GridSearch to tuning')
+            print('~Use HyperOpt GridSearch to tuning')
             best_space, trial_history = hyperopt_tuning_model(lgb_model, param, sample_df, cv_iterable, target_name)
 
             # See the HyperOpt result

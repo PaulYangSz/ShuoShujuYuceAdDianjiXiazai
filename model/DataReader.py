@@ -3,6 +3,7 @@ DataReader is a class which is used to read dataset and return train/validation/
 """
 
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import gc
 from contextlib import contextmanager
@@ -76,9 +77,10 @@ def datetime2cate(conver_by: str, _time: datetime):
 
 class DataReader:
 
-    def __init__(self, file_from:str, feats_construct:str):
+    def __init__(self, file_from:str, feats_construct:str, verify_code: bool):
         self.file_from = file_from
         self.feats_construct = feats_construct
+        self.n_rows = 100000 if verify_code else None
         # For one train_df will use StratifiedKFold to split train and validation
         # For train_df list each element will be loop as train and validation
         self.train_df_list = []
@@ -97,13 +99,13 @@ class DataReader:
         if self.file_from == 'by_day__by_test_time':
             for day in range(7, 10):
                 day_path = '../data/day_with_test_hour/201711{:02d}_test_hour.csv'.format(day)
-                day_df = pd.read_csv(day_path, dtype=DTYPES)
+                day_df = pd.read_csv(day_path, dtype=DTYPES, nrows=self.n_rows)
                 self.train_df_list.append(day_df)
         else:
             print(f"!!! Wrong param['file_from'] = '{self.file_from}'")
 
     def load_test(self):
-        self.test_df = pd.read_csv('../data/test.csv', dtype=DTYPES)
+        self.test_df = pd.read_csv('../data/test.csv', dtype=DTYPES, nrows=self.n_rows)
 
     def construct_feats(self, data_df: pd.DataFrame, model_name: str):
         if self.feats_construct == 'simplest':
@@ -118,7 +120,7 @@ class DataReader:
             if model_name in ["LGB"]:
                 data_df['click_time'] = data_df['click_time'].astype('category')
             cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
-                else self.int_cols[:5] + ['click_time']
+                else self.int_cols[:5] + ['click_time', 'click_id']
             return data_df[cols]
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
@@ -145,8 +147,8 @@ class DataReader:
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         index_start = 0
         for len_ in each_len:
-            train_idx = train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start+len_:].tolist()
-            test_idx = train_feat_df.index[index_start: index_start + len_].tolist()
+            train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start+len_:].tolist())
+            test_idx = np.array(train_feat_df.index[index_start: index_start + len_].tolist())
             cv_index_list.append((train_idx, test_idx))
             index_start += len_
         return train_feat_df, cv_index_list, self.target
@@ -157,15 +159,27 @@ class DataReader:
         with timer(f"Construct test feats df<'{self.feats_construct}'>"):
             test_df = self.construct_feats(self.test_df, model_name)
             if model_name in ["MLP"]:
-                self.max_ip = test_df['ip'].max() if test_df['ip'].max() > self.max_ip else self.max_ip
-                self.max_app = test_df['app'].max() if test_df['app'].max() > self.max_app else self.max_app
-                self.max_device = test_df['device'].max() if test_df['device'].max() > self.max_device else self.max_device
-                self.max_os = test_df['os'].max() if test_df['os'].max() > self.max_os else self.max_os
-                self.max_channel = test_df['channel'].max() if test_df['channel'].max() > self.max_channel else self.max_channel
-                self.max_click_time = test_df['click_time'].max() if test_df['click_time'].max() > self.max_click_time else self.max_click_time
+                self.max_ip = test_df['ip'].max()+1 if test_df['ip'].max() > self.max_ip else self.max_ip+1
+                self.max_app = test_df['app'].max()+1 if test_df['app'].max() > self.max_app else self.max_app+1
+                self.max_device = test_df['device'].max()+1 if test_df['device'].max() > self.max_device else self.max_device+1
+                self.max_os = test_df['os'].max()+1 if test_df['os'].max() > self.max_os else self.max_os+1
+                self.max_channel = test_df['channel'].max()+1 if test_df['channel'].max() > self.max_channel else self.max_channel+1
+                self.max_click_time = test_df['click_time'].max()+1 if test_df['click_time'].max() > self.max_click_time else self.max_click_time+1
             del self.test_df
             gc.collect()
         return test_df
+
+    def get_keras_input(self, dataframe):
+        X = {
+            'ip': np.array(dataframe['ip']),
+            'app': np.array(dataframe['app']),
+            'device': np.array(dataframe['device']),
+            'os': np.array(dataframe['os']),
+            'channel': np.array(dataframe['channel']),
+            'click_time': np.array(dataframe['click_time']),
+        }
+        return X
+
 
 
 
