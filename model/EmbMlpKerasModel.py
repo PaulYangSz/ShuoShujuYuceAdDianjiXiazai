@@ -74,7 +74,7 @@ class EmbMlpHpParamSelect():
                 'os_dim': 20,  # 20 + hp.randint('os_dim', 100),
                 'channel_dim': 20,  # 20 + hp.randint('channel_dim', 100),
                 'click_time_dim': 10,  # 20 + hp.randint('click_time_dim', 100),
-                'bn_flag': hp.choice('bn_flag', [True, False]),
+                'bn_flag': True,  # hp.choice('bn_flag', [True, False]),
                 'dense_layers_unit': (128, 64),  # hp.choice('dense_layers_unit', [(128, 64)]),
                 'drop_out': (0.2, 0.2),  # hp.choice('drop_out', [(0.2, 0.2)]),
                 'active': ('relu', 'relu'),  # hp.choice('active', [('relu', 'relu')]),
@@ -239,7 +239,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         history = self.mlp_model.fit(keras_X, y, epochs=self.epochs, batch_size=self.batch_size,
                                      validation_split=0.,  # 0.01
                                      # callbacks=[TensorBoard('./logs/'+log_subdir)],
-                                     verbose=10)
+                                     verbose=1)  # 0 = 安静模式, 1 = 进度条, 2 = 每轮一行
         Logger.info('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
         print('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
 
@@ -294,7 +294,7 @@ def save_test_result(fitted_model, test_df, file_name):
 
 if __name__ == "__main__":
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest', verify_code=True)
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
 
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
-    tuning_type = 'sk'  # 'sk' or 'hp'
+    tuning_type = 'hp'  # 'sk' or 'hp'
 
     # Define model and tuning
     if tuning_type == 'sk':
