@@ -75,6 +75,10 @@ def datetime2cate(conver_by: str, _time: datetime):
         return None
 
 
+def update_max(max_old, data_df, col_str):
+    return data_df[col_str].max() + 1 if data_df[col_str].max() > max_old else max_old + 1
+
+
 class DataReader:
 
     def __init__(self, file_from:str, feats_construct:str, verify_code: bool):
@@ -88,6 +92,8 @@ class DataReader:
         self.int_cols = ['ip', 'app', 'device', 'os', 'channel', 'is_attributed']
         self.target = 'is_attributed'
         self.time_cols = ['click_time', 'attributed_time']
+        self.simplest_bool = False
+        self.day_stat_bool = False
         self.max_ip = -1
         self.max_app = -1
         self.max_device = -1
@@ -109,19 +115,9 @@ class DataReader:
 
     def construct_feats(self, data_df: pd.DataFrame, model_name: str):
         if self.feats_construct == 'simplest':
-            for col in self.int_cols:
-                if col in data_df.columns:
-                    if model_name in ["LGB"]:
-                        data_df[col] = data_df[col].astype('category')
-                    else:
-                        pass
-            data_df['click_time'] = pd.to_datetime(data_df['click_time'])
-            data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate('test_30mins', t))
-            if model_name in ["LGB"]:
-                data_df['click_time'] = data_df['click_time'].astype('category')
-            cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
-                else self.int_cols[:5] + ['click_time', 'click_id']
-            return data_df[cols]
+            return self.simplest_way(data_df, model_name)
+        elif self.feats_construct == "add_day_stat":
+            return self.add_day_stat_way(data_df, model_name)
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
@@ -137,12 +133,7 @@ class DataReader:
                 del train_df
                 gc.collect()
         if model_name in ["MLP"]:
-            self.max_ip = train_feat_df['ip'].max()
-            self.max_app = train_feat_df['app'].max()
-            self.max_device = train_feat_df['device'].max()
-            self.max_os = train_feat_df['os'].max()
-            self.max_channel = train_feat_df['channel'].max()
-            self.max_click_time = train_feat_df['click_time'].max()
+            self.make_emb_max(train_feat_df)
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         index_start = 0
@@ -159,12 +150,7 @@ class DataReader:
         with timer(f"Construct test feats df<'{self.feats_construct}'>"):
             test_df = self.construct_feats(self.test_df, model_name)
             if model_name in ["MLP"]:
-                self.max_ip = test_df['ip'].max()+1 if test_df['ip'].max() > self.max_ip else self.max_ip+1
-                self.max_app = test_df['app'].max()+1 if test_df['app'].max() > self.max_app else self.max_app+1
-                self.max_device = test_df['device'].max()+1 if test_df['device'].max() > self.max_device else self.max_device+1
-                self.max_os = test_df['os'].max()+1 if test_df['os'].max() > self.max_os else self.max_os+1
-                self.max_channel = test_df['channel'].max()+1 if test_df['channel'].max() > self.max_channel else self.max_channel+1
-                self.max_click_time = test_df['click_time'].max()+1 if test_df['click_time'].max() > self.max_click_time else self.max_click_time+1
+                self.get_emb_max(test_df)
             del self.test_df
             gc.collect()
         return test_df
@@ -177,8 +163,105 @@ class DataReader:
             'os': np.array(dataframe['os']),
             'channel': np.array(dataframe['channel']),
             'click_time': np.array(dataframe['click_time']),
+            'device_os_n': np.array(dataframe['device_os_n']),
+            'app_ch_n': np.array(dataframe['app_ch_n']),
+            'device_ch_n': np.array(dataframe['device_ch_n']),
+            'os_ch_n': np.array(dataframe['os_ch_n']),
+            'ch_os_n': np.array(dataframe['ch_os_n']),
         }
         return X
+
+    def simplest_way(self, data_df, model_name):
+        """
+        对于LGB产生全部为cate类型的ip,app,device,os,channel,click_time
+        对于MLP产生为int类型的ip,app,device,os,channel,click_time
+        :param data_df:
+        :param model_name:
+        :return:
+        """
+        for col in self.int_cols:
+            if col in data_df.columns:
+                if model_name in ["LGB"]:
+                    data_df[col] = data_df[col].astype('category')
+                else:
+                    pass
+        data_df['click_time'] = pd.to_datetime(data_df['click_time'])
+        data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate('test_30mins', t))
+        if model_name in ["LGB"]:
+            data_df['click_time'] = data_df['click_time'].astype('category')
+        cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
+            else self.int_cols[:5] + ['click_time', 'click_id']
+        self.simplest_bool = True
+        return data_df[cols]
+
+    def add_day_stat_way(self, data_df, model_name):
+        data_df = self.simplest_way(data_df, model_name)
+        gp = data_df[['device', 'os']].groupby(by=['device'])[['os']].count().reset_index().rename(index=str, columns={'os': 'device_os_n'})
+        data_df = data_df.merge(gp, on=['device'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['app', 'channel']].groupby(by=['app'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'app_ch_n'})
+        data_df = data_df.merge(gp, on=['app'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['device', 'channel']].groupby(by=['device'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'device_ch_n'})
+        data_df = data_df.merge(gp, on=['device'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['os', 'channel']].groupby(by=['os'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'os_ch_n'})
+        data_df = data_df.merge(gp, on=['os'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['channel', 'os']].groupby(by=['channel'])[['os']].count().reset_index().rename(index=str, columns={'os': 'ch_os_n'})
+        data_df = data_df.merge(gp, on=['channel'], how='left')
+        del gp
+        gc.collect()
+        print(f"~ In add_day_stat_way() df.cols={data_df.columns.values}")
+        self.day_stat_bool = True
+        return data_df
+
+    def make_emb_max(self, train_feat_df):
+        if self.simplest_bool:
+            self.max_ip = train_feat_df['ip'].max()
+            self.max_app = train_feat_df['app'].max()
+            self.max_device = train_feat_df['device'].max()
+            self.max_os = train_feat_df['os'].max()
+            self.max_channel = train_feat_df['channel'].max()
+            self.max_click_time = train_feat_df['click_time'].max()
+        if self.day_stat_bool:
+            self.max_device_os_n = train_feat_df['device_os_n'].max()
+            self.max_app_ch_n = train_feat_df['app_ch_n'].max()
+            self.max_device_ch_n = train_feat_df['device_ch_n'].max()
+            self.max_os_ch_n = train_feat_df['os_ch_n'].max()
+            self.max_ch_os_n = train_feat_df['ch_os_n'].max()
+
+    def get_emb_max(self, test_df):
+        if self.simplest_bool:
+            self.max_ip = update_max(self.max_ip, test_df, 'ip')
+            self.max_app = update_max(self.max_app, test_df, 'app')
+            self.max_device = update_max(self.max_device, test_df, 'device')
+            self.max_os = update_max(self.max_os, test_df, 'os')
+            self.max_channel = update_max(self.max_channel, test_df, 'channel')
+            self.max_click_time = update_max(self.max_click_time, test_df, 'click_time')
+        if self.day_stat_bool:
+            self.max_device_os_n = update_max(self.max_device_os_n, test_df, 'device_os_n')
+            self.max_app_ch_n = update_max(self.max_app_ch_n, test_df, 'app_ch_n')
+            self.max_device_ch_n = update_max(self.max_device_ch_n, test_df, 'device_ch_n')
+            self.max_os_ch_n = update_max(self.max_os_ch_n, test_df, 'os_ch_n')
+            self.max_ch_os_n = update_max(self.max_ch_os_n, test_df, 'ch_os_n')
+            Logger.info(f"各特征取值上限为: "
+                        f"\nmax_ip={self.max_ip}"
+                        f"\nmax_app={self.max_app}"
+                        f"\nmax_device={self.max_device}"
+                        f"\nmax_os={self.max_os}"
+                        f"\nmax_channel={self.max_channel}"
+                        f"\nmax_click_time={self.max_click_time}"
+                        f"\nmax_device_os_n={self.max_device_os_n}"
+                        f"\nmax_app_ch_n={self.max_app_ch_n}"
+                        f"\nmax_device_ch_n={self.max_device_ch_n}"
+                        f"\nmax_os_ch_n={self.max_os_ch_n}"
+                        f"\nmax_ch_os_n={self.max_ch_os_n}")
+
 
 
 

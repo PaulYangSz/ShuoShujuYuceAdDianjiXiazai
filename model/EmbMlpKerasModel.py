@@ -123,6 +123,7 @@ class EmbMlpSkParamSelect():
 
 
 MAX_IP = MAX_APP = MAX_DEVICE = MAX_OS = MAX_CHANNEL = MAX_CLICK_TIME = -1
+MAX_DEVICE_OS_N = MAX_APP_CH_N = MAX_DEVICE_CH_N = MAX_OS_CH_N = MAX_CH_OS_N = -1
 FUNC_GET_KERAS_INPUT = None
 
 
@@ -142,6 +143,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
     """
 
     def __init__(self, ip_dim=50, app_dim=20, device_dim=30, os_dim=20, channel_dim=20, click_time_dim=10,
+                 device_os_n_dim=10, app_ch_n_dim=10, device_ch_n_dim=10, os_ch_n_dim=10, ch_os_n_dim=10,
                  bn_flag=True, dense_layers_unit=(128, 64), drop_out=(0.2, 0.2), active=('relu', 'relu'),
                  epochs=1, batch_size=512*3, lr_init=0.015, lr_final=0.007):
         self.ip_dim = ip_dim
@@ -150,6 +152,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         self.os_dim = os_dim
         self.channel_dim = channel_dim
         self.click_time_dim = click_time_dim
+        self.device_os_n_dim = device_os_n_dim
+        self.app_ch_n_dim = app_ch_n_dim
+        self.device_ch_n_dim = device_ch_n_dim
+        self.os_ch_n_dim = os_ch_n_dim
+        self.ch_os_n_dim = ch_os_n_dim
         self.bn_flag = bn_flag
         self.dense_layers_unit = dense_layers_unit
         self.drop_out = drop_out
@@ -174,6 +181,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         os = Input(shape=[1], name='os')
         channel = Input(shape=[1], name='channel')
         click_time = Input(shape=[1], name='click_time')
+        device_os_n = Input(shape=[1], name='device_os_n')
+        app_ch_n = Input(shape=[1], name='app_ch_n')
+        device_ch_n = Input(shape=[1], name='device_ch_n')
+        os_ch_n = Input(shape=[1], name='os_ch_n')
+        ch_os_n = Input(shape=[1], name='ch_os_n')
 
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
@@ -183,6 +195,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         emb_os = Embedding(MAX_OS, self.os_dim)(os)
         emb_channel = Embedding(MAX_CHANNEL, self.channel_dim)(channel)
         emb_click_time = Embedding(MAX_CLICK_TIME, self.click_time_dim)(click_time)
+        emb_device_os_n = Embedding(MAX_DEVICE_OS_N, self.device_os_n_dim)(device_os_n)
+        emb_app_ch_n = Embedding(MAX_APP_CH_N, self.app_ch_n_dim)(app_ch_n)
+        emb_device_ch_n = Embedding(MAX_DEVICE_CH_N, self.device_ch_n_dim)(device_ch_n)
+        emb_os_ch_n = Embedding(MAX_OS_CH_N, self.os_ch_n_dim)(os_ch_n)
+        emb_ch_os_n = Embedding(MAX_CH_OS_N, self.ch_os_n_dim)(ch_os_n)
 
         # concatenate to main layer
         main_layer = concatenate([#Flatten()(emb_ip),
@@ -190,7 +207,12 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
                                   Flatten()(emb_device),
                                   Flatten()(emb_os),
                                   Flatten()(emb_channel),
-                                  Flatten()(emb_click_time)])
+                                  Flatten()(emb_click_time),
+                                  Flatten()(emb_device_os_n),
+                                  Flatten()(emb_app_ch_n),
+                                  Flatten()(emb_device_ch_n),
+                                  Flatten()(emb_os_ch_n),
+                                  Flatten()(emb_ch_os_n)])
 
         # MLP
         for i in range(len(self.dense_layers_unit)):
@@ -204,7 +226,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         output = Dense(1, activation='sigmoid')(main_layer)
 
         # Model
-        model = Model(inputs=[app, device, os, channel, click_time],
+        model = Model(inputs=[app, device, os, channel, click_time, device_os_n, app_ch_n, device_ch_n, os_ch_n, ch_os_n],
                       outputs=output)
 
         # optimizer
@@ -294,7 +316,7 @@ def save_test_result(fitted_model, test_df, file_name):
 
 if __name__ == "__main__":
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest', verify_code=False)
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_day_stat', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
 
@@ -305,6 +327,11 @@ if __name__ == "__main__":
     MAX_OS = data_reader.max_os
     MAX_CHANNEL = data_reader.max_channel
     MAX_CLICK_TIME = data_reader.max_click_time
+    MAX_DEVICE_OS_N = data_reader.max_device_os_n
+    MAX_APP_CH_N = data_reader.max_app_ch_n
+    MAX_DEVICE_CH_N = data_reader.max_device_ch_n
+    MAX_OS_CH_N = data_reader.max_os_ch_n
+    MAX_CH_OS_N = data_reader.max_ch_os_n
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
@@ -316,6 +343,7 @@ if __name__ == "__main__":
         param = EmbMlpSkParamSelect("default")
         adjust_para_list = print_param(param)
         emb_mlp_model = EmbMlpModel()
+        emb_mlp_model.mlp_model.summary()
         search_CV_model = grid_search_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name,
                                                    search_switch="grid_search")  # random_search
 
@@ -336,6 +364,7 @@ if __name__ == "__main__":
         else:
             print('~Use HyperOpt GridSearch to tuning')
             emb_mlp_model = EmbMlpModel()
+            emb_mlp_model.mlp_model.summary()
             best_space, trial_history = hyperopt_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name)
 
             # See the HyperOpt result
