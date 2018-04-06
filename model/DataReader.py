@@ -171,7 +171,7 @@ class DataReader:
 
     def get_keras_input(self, dataframe):
         X = {
-            'ip': np.array(dataframe['ip']),
+            # 'ip': np.array(dataframe['ip']),
             'app': np.array(dataframe['app']),
             'device': np.array(dataframe['device']),
             'os': np.array(dataframe['os']),

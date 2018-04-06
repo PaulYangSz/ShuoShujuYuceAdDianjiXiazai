@@ -115,3 +115,6 @@ data/day_with_test_hour/20171109_test_hour.csv
 data/day_with_test_hour/20171108_test_hour.csv
 data/day_with_test_hour/20171107_test_hour.csv
 data/day_with_test_hour/20171106_test_hour.csv
+output/
+model/hp_result/
+model/cv_result/

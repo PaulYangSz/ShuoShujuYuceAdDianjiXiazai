@@ -113,8 +113,8 @@ class EmbMlpSkParamSelect():
                 'dense_layers_unit': [(128, 64)],  # hp.choice('dense_layers_unit', [(128, 64)]),
                 'drop_out': [(0.2, 0.2)],  # hp.choice('drop_out', [(0.2, 0.2)]),
                 'active': [('relu', 'relu')],  # hp.choice('active', [('relu', 'relu')]),
-                'epochs': [2],  # hp.choice('epochs', [1, 2, 3]),
-                'batch_size': [512 * 12],  # hp.quniform('reg_lambda', 0.0, 1.0, 0.01),
+                'epochs': [4],  # hp.choice('epochs', [1, 2, 3]),
+                'batch_size': [512*12],  # hp.quniform('reg_lambda', 0.0, 1.0, 0.01),
                 'lr_init': [0.015],  # hp.quniform('lr_init', 0.01, 0.04, 0.001),
                 'lr_final': [0.007],  # hp.quniform('lr_final', 0.001, 0.01, 0.001),
             }
@@ -168,7 +168,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
 
     def get_embedding_mlp_model(self):
         # Inputs
-        ip = Input(shape=[1], name="ip")
+        # ip = Input(shape=[1], name="ip")
         app = Input(shape=[1], name='app')
         device = Input(shape=[1], name='device')
         os = Input(shape=[1], name='os')
@@ -177,16 +177,16 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
 
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
-        emb_ip = Embedding(input_dim=MAX_IP, output_dim=self.ip_dim)(ip)  # [None, STEPS, emb_size]
-        emb_app = Embedding(MAX_APP, self.app_dim)(app)
+        # emb_ip = Embedding(input_dim=MAX_IP, output_dim=self.ip_dim)(ip)
+        emb_app = Embedding(MAX_APP, self.app_dim)(app)  # [None, STEPS, emb_size]
         emb_device = Embedding(MAX_DEVICE, self.device_dim)(device)
         emb_os = Embedding(MAX_OS, self.os_dim)(os)
         emb_channel = Embedding(MAX_CHANNEL, self.channel_dim)(channel)
         emb_click_time = Embedding(MAX_CLICK_TIME, self.click_time_dim)(click_time)
 
         # concatenate to main layer
-        main_layer = concatenate([Flatten()(emb_ip),  # [None, STEPS, dim] -> [None, STEPS * dim]
-                                  Flatten()(emb_app),
+        main_layer = concatenate([#Flatten()(emb_ip),
+                                  Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
                                   Flatten()(emb_device),
                                   Flatten()(emb_os),
                                   Flatten()(emb_channel),
@@ -204,7 +204,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         output = Dense(1, activation='sigmoid')(main_layer)
 
         # Model
-        model = Model(inputs=[ip, app, device, os, channel, click_time],
+        model = Model(inputs=[app, device, os, channel, click_time],
                       outputs=output)
 
         # optimizer
@@ -348,7 +348,7 @@ if __name__ == "__main__":
     fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
 
     # Generate the test_result
-    file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%M.%d-%H%M"))
+    file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
     save_test_result(fitted_model, test_df, file_name)
 
 
