@@ -310,7 +310,7 @@ def use_best_pred_valid(best_params_, sample_df, cv_, target_name):
 
 def save_test_result(fitted_model, test_df, file_name):
     sub_df = pd.DataFrame()
-    sub_df['click_id'] = test_df['click_id']
+    sub_df['click_id'] = test_df['click_id'].astype(np.int32)
     sub_df['is_attributed'] = fitted_model.predict_proba(test_df)[:, 1]
     sub_df.to_csv(file_name, index=False)
 
