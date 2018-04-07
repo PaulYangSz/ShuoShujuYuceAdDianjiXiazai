@@ -81,9 +81,10 @@ def update_max(max_old, data_df, col_str):
 
 class DataReader:
 
-    def __init__(self, file_from:str, feats_construct:str, verify_code: bool):
+    def __init__(self, file_from:str, feats_construct:str, time_interval:str, verify_code: bool):
         self.file_from = file_from
         self.feats_construct = feats_construct
+        self.time_interval = time_interval
         self.n_rows = 100000 if verify_code else None
         # For one train_df will use StratifiedKFold to split train and validation
         # For train_df list each element will be loop as train and validation
@@ -163,11 +164,16 @@ class DataReader:
             'os': np.array(dataframe['os']),
             'channel': np.array(dataframe['channel']),
             'click_time': np.array(dataframe['click_time']),
-            'device_os_n': np.array(dataframe['device_os_n']),
-            'app_ch_n': np.array(dataframe['app_ch_n']),
-            'device_ch_n': np.array(dataframe['device_ch_n']),
-            'os_ch_n': np.array(dataframe['os_ch_n']),
-            'ch_os_n': np.array(dataframe['ch_os_n']),
+            # 'device_os_n': np.array(dataframe['device_os_n']),
+            # 'app_ch_n': np.array(dataframe['app_ch_n']),
+            # 'device_ch_n': np.array(dataframe['device_ch_n']),
+            # 'os_ch_n': np.array(dataframe['os_ch_n']),
+            # 'ch_os_n': np.array(dataframe['ch_os_n']),
+            'iptime_app_n': np.array(dataframe['iptime_app_n']),
+            'iptime_device_n': np.array(dataframe['iptime_device_n']),
+            'iptime_os_n': np.array(dataframe['iptime_os_n']),
+            'iptime_ch_n': np.array(dataframe['iptime_ch_n']),
+            'iptime_click_n': np.array(dataframe['iptime_click_n']),
         }
         return X
 
@@ -186,7 +192,7 @@ class DataReader:
                 else:
                     pass
         data_df['click_time'] = pd.to_datetime(data_df['click_time'])
-        data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate('test_30mins', t))
+        data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate(self.time_interval, t))
         if model_name in ["LGB"]:
             data_df['click_time'] = data_df['click_time'].astype('category')
         cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
@@ -196,28 +202,53 @@ class DataReader:
 
     def add_day_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
-        gp = data_df[['device', 'os']].groupby(by=['device'])[['os']].count().reset_index().rename(index=str, columns={'os': 'device_os_n'})
+        gp = data_df[['device', 'os']].groupby(by=['device'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'device_os_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['device'], how='left')
         del gp
         gc.collect()
-        gp = data_df[['app', 'channel']].groupby(by=['app'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'app_ch_n'})
+        gp = data_df[['app', 'channel']].groupby(by=['app'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'app_ch_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['app'], how='left')
         del gp
         gc.collect()
-        gp = data_df[['device', 'channel']].groupby(by=['device'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'device_ch_n'})
+        gp = data_df[['device', 'channel']].groupby(by=['device'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'device_ch_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['device'], how='left')
         del gp
         gc.collect()
-        gp = data_df[['os', 'channel']].groupby(by=['os'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'os_ch_n'})
+        gp = data_df[['os', 'channel']].groupby(by=['os'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'os_ch_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['os'], how='left')
         del gp
         gc.collect()
-        gp = data_df[['channel', 'os']].groupby(by=['channel'])[['os']].count().reset_index().rename(index=str, columns={'os': 'ch_os_n'})
+        gp = data_df[['channel', 'os']].groupby(by=['channel'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'ch_os_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['channel'], how='left')
         del gp
         gc.collect()
         print(f"~ In add_day_stat_way() df.cols={data_df.columns.values}")
         self.day_stat_bool = True
+        return data_df
+
+    def add_time_interval_stat_way(self, data_df, model_name):
+        data_df = self.simplest_way(data_df, model_name)
+        gp = data_df[['ip', 'click_time', 'app']].groupby(by=['ip', 'click_time'])['app'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'app': 'iptime_app_n'})
+        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['ip', 'click_time', 'device']].groupby(by=['ip', 'click_time'])['device'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'device': 'iptime_device_n'})
+        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['ip', 'click_time', 'os']].groupby(by=['ip', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'iptime_os_n'})
+        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['ip', 'click_time', 'channel']].groupby(by=['ip', 'click_time'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'iptime_ch_n'})
+        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['ip', 'click_time', 'channel']].groupby(by=['ip', 'click_time'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'iptime_click_n'})
+        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")
         return data_df
 
     def make_emb_max(self, train_feat_df):
