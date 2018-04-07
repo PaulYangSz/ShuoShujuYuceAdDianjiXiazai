@@ -119,6 +119,8 @@ class DataReader:
             return self.simplest_way(data_df, model_name)
         elif self.feats_construct == "add_day_stat":
             return self.add_day_stat_way(data_df, model_name)
+        elif self.feats_construct == "add_time_interval_stat":
+            return self.add_time_interval_stat_way(data_df, model_name)
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
@@ -202,6 +204,7 @@ class DataReader:
 
     def add_day_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
+        # reset_index() can cast Series to Dataframe
         gp = data_df[['device', 'os']].groupby(by=['device'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'device_os_n'}).astype(np.int16)
         data_df = data_df.merge(gp, on=['device'], how='left')
         del gp
@@ -236,7 +239,7 @@ class DataReader:
         data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
         del gp
         gc.collect()
-        gp = data_df[['ip', 'click_time', 'os']].groupby(by=['ip', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'iptime_os_n'})
+        gp = data_df[['ip', 'click_time', 'os']].groupby(by=['ip', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'iptime_os_n'})
         data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
         del gp
         gc.collect()
