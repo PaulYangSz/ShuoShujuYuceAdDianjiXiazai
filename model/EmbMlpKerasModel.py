@@ -26,6 +26,7 @@ from keras.models import Model
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping  # , TensorBoard
 from keras import backend as K
 from keras.optimizers import Adam, Adadelta, Adagrad, Adamax, RMSprop
+from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, check_X_y
 
@@ -314,24 +315,55 @@ def save_test_result(fitted_model, test_df, file_name):
     sub_df.to_csv(file_name, index=False)
 
 
+def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, cols):
+    len_sample = len(sample_df_)
+    all_df: pd.DataFrame = sample_df_.append(test_df_)
+    all_df[cols] = all_df[cols].apply(LabelEncoder().fit_transform).astype(np.int16)
+    global MAX_IP, MAX_APP, MAX_DEVICE, MAX_OS, MAX_CHANNEL, MAX_CLICK_TIME
+    global MAX_DEVICE_OS_N, MAX_APP_CH_N, MAX_DEVICE_CH_N, MAX_OS_CH_N, MAX_CH_OS_N
+    MAX_IP = all_df.ip.max() + 1
+    MAX_APP = all_df.app.max() + 1
+    MAX_DEVICE = all_df.device.max() + 1
+    MAX_OS = all_df.os.max() + 1
+    MAX_CHANNEL = all_df.channel.max() + 1
+    MAX_CLICK_TIME = all_df.click_time.max() + 1
+    MAX_DEVICE_OS_N = all_df.device_os_n.max() + 1
+    MAX_APP_CH_N = all_df.app_ch_n.max() + 1
+    MAX_DEVICE_CH_N = all_df.device_ch_n.max() + 1
+    MAX_OS_CH_N = all_df.os_ch_n.max() + 1
+    MAX_CH_OS_N = all_df.ch_os_n.max() + 1
+    Logger.info(f"转换为Label后，各特征取值上限为: "
+                f"\nmax_ip={MAX_IP}"
+                f"\nmax_app={MAX_APP}"
+                f"\nmax_device={MAX_DEVICE}"
+                f"\nmax_os={MAX_OS}"
+                f"\nmax_channel={MAX_CHANNEL}"
+                f"\nmax_click_time={MAX_CLICK_TIME}"
+                f"\nmax_device_os_n={MAX_DEVICE_OS_N}"
+                f"\nmax_app_ch_n={MAX_APP_CH_N}"
+                f"\nmax_device_ch_n={MAX_DEVICE_CH_N}"
+                f"\nmax_os_ch_n={MAX_OS_CH_N}"
+                f"\nmax_ch_os_n={MAX_CH_OS_N}")
+    _test_df = all_df[len_sample:]
+    _sample_df = all_df[:len_sample]
+    del all_df
+    gc.collect()
+    return _sample_df, _test_df
+
+
 if __name__ == "__main__":
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_day_stat', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
 
+    # Continue to preprocess data
+    need_label_cols = [#'ip', 'app', 'device', 'os', 'channel',
+                       'device_os_n', 'app_ch_n', 'device_ch_n', 'os_ch_n', 'ch_os_n']
+    with timer("Use LabelEncoder().fit_transform to continue process data"):
+        sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
+
     # Get model constant params
-    MAX_IP = data_reader.max_ip
-    MAX_APP = data_reader.max_app
-    MAX_DEVICE = data_reader.max_device
-    MAX_OS = data_reader.max_os
-    MAX_CHANNEL = data_reader.max_channel
-    MAX_CLICK_TIME = data_reader.max_click_time
-    MAX_DEVICE_OS_N = data_reader.max_device_os_n
-    MAX_APP_CH_N = data_reader.max_app_ch_n
-    MAX_DEVICE_CH_N = data_reader.max_device_ch_n
-    MAX_OS_CH_N = data_reader.max_os_ch_n
-    MAX_CH_OS_N = data_reader.max_ch_os_n
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
