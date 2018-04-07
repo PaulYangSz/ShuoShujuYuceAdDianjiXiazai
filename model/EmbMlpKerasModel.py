@@ -111,13 +111,13 @@ class EmbMlpSkParamSelect():
                 'channel_dim': [20],  # 20 + hp.randint('channel_dim', 100),
                 'click_time_dim': [10],  # 20 + hp.randint('click_time_dim', 100),
                 'bn_flag': [True],
-                'dense_layers_unit': [(128, 64)],  # hp.choice('dense_layers_unit', [(128, 64)]),
+                'dense_layers_unit': [(256, 128)],  # hp.choice('dense_layers_unit', [(128, 64)]),
                 'drop_out': [(0.2, 0.2)],  # hp.choice('drop_out', [(0.2, 0.2)]),
                 'active': [('relu', 'relu')],  # hp.choice('active', [('relu', 'relu')]),
                 'epochs': [4],  # hp.choice('epochs', [1, 2, 3]),
                 'batch_size': [512*12],  # hp.quniform('reg_lambda', 0.0, 1.0, 0.01),
                 'lr_init': [0.015],  # hp.quniform('lr_init', 0.01, 0.04, 0.001),
-                'lr_final': [0.007],  # hp.quniform('lr_final', 0.001, 0.01, 0.001),
+                'lr_final': [0.001],  # hp.quniform('lr_final', 0.001, 0.01, 0.001),
             }
         else:
             print("Wrong param_name in LgbParamSelect")
