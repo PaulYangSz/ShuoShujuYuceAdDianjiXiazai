@@ -176,6 +176,11 @@ class DataReader:
             'iptime_os_n': np.array(dataframe['iptime_os_n']),
             'iptime_ch_n': np.array(dataframe['iptime_ch_n']),
             'iptime_click_n': np.array(dataframe['iptime_click_n']),
+            'apptime_ip_n': np.array(dataframe['apptime_ip_n']),
+            'apptime_device_n': np.array(dataframe['apptime_device_n']),
+            'apptime_os_n': np.array(dataframe['apptime_os_n']),
+            'apptime_ch_n': np.array(dataframe['apptime_ch_n']),
+            'apptime_click_n': np.array(dataframe['apptime_click_n']),
         }
         return X
 
@@ -249,6 +254,27 @@ class DataReader:
         gc.collect()
         gp = data_df[['ip', 'click_time', 'channel']].groupby(by=['ip', 'click_time'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'iptime_click_n'})
         data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
+        del gp
+        gc.collect()
+
+        gp = data_df[['app', 'click_time', 'ip']].groupby(by=['app', 'click_time'])['ip'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'ip': 'apptime_ip_n'})
+        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['app', 'click_time', 'device']].groupby(by=['app', 'click_time'])['device'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'device': 'apptime_device_n'})
+        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['app', 'click_time', 'os']].groupby(by=['app', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'apptime_os_n'})
+        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['app', 'click_time', 'channel']].groupby(by=['app', 'click_time'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'apptime_ch_n'})
+        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
+        del gp
+        gc.collect()
+        gp = data_df[['app', 'click_time', 'channel']].groupby(by=['app', 'click_time'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'apptime_click_n'})
+        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
         del gp
         gc.collect()
         print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")

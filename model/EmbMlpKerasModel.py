@@ -132,6 +132,7 @@ class EmbMlpSkParamSelect():
 MAX_IP = MAX_APP = MAX_DEVICE = MAX_OS = MAX_CHANNEL = MAX_CLICK_TIME = -1
 MAX_DEVICE_OS_N = MAX_APP_CH_N = MAX_DEVICE_CH_N = MAX_OS_CH_N = MAX_CH_OS_N = -1
 MAX_IPTIME_APP_N = MAX_IPTIME_DEVICE_N = MAX_IPTIME_OS_N = MAX_IPTIME_CH_N = MAX_IPTIME_CLICK_N = -1
+MAX_APPTIME_IP_N = MAX_APPTIME_DEVICE_N = MAX_APPTIME_OS_N = MAX_APPTIME_CH_N = MAX_APPTIME_CLICK_N = -1
 FUNC_GET_KERAS_INPUT = None
 
 
@@ -152,7 +153,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
 
     def __init__(self, ip_dim=50, app_dim=20, device_dim=30, os_dim=20, channel_dim=20, click_time_dim=10,
                  device_os_n_dim=10, app_ch_n_dim=10, device_ch_n_dim=10, os_ch_n_dim=10, ch_os_n_dim=10,
-                 iptime_app_n_dim=10, iptime_device_n_dim=10, iptime_os_n_dim=10, iptime_ch_n_dim=10, iptime_click_n_dim=10,
+                 iptime_app_n_dim=10, iptime_device_n_dim=10, iptime_os_n_dim=10, iptime_ch_n_dim=10, iptime_click_n_dim=20,
                  bn_flag=True, dense_layers_unit=(128, 64), drop_out=(0.2, 0.2), active=('relu', 'relu'),
                  epochs=1, batch_size=512*3, lr_init=0.015, lr_final=0.007):
         self.ip_dim = ip_dim
@@ -205,6 +206,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         iptime_os_n = Input(shape=[1], name='iptime_os_n')
         iptime_ch_n = Input(shape=[1], name='iptime_ch_n')
         iptime_click_n = Input(shape=[1], name='iptime_click_n')
+        apptime_ip_n = Input(shape=[1], name='apptime_ip_n')
+        apptime_device_n = Input(shape=[1], name='apptime_device_n')
+        apptime_os_n = Input(shape=[1], name='apptime_os_n')
+        apptime_ch_n = Input(shape=[1], name='apptime_ch_n')
+        apptime_click_n = Input(shape=[1], name='apptime_click_n')
 
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
@@ -224,6 +230,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         emb_iptime_os_n = Embedding(MAX_IPTIME_OS_N, self.iptime_os_n_dim)(iptime_os_n)
         emb_iptime_ch_n = Embedding(MAX_IPTIME_CH_N, self.iptime_ch_n_dim)(iptime_ch_n)
         emb_iptime_click_n = Embedding(MAX_IPTIME_CLICK_N, self.iptime_click_n_dim)(iptime_click_n)
+        emb_apptime_ip_n = Embedding(MAX_APPTIME_IP_N, self.iptime_app_n_dim)(apptime_ip_n)
+        emb_apptime_device_n = Embedding(MAX_APPTIME_DEVICE_N, self.iptime_device_n_dim)(apptime_device_n)
+        emb_apptime_os_n = Embedding(MAX_APPTIME_OS_N, self.iptime_os_n_dim)(apptime_os_n)
+        emb_apptime_ch_n = Embedding(MAX_APPTIME_CH_N, self.iptime_ch_n_dim)(apptime_ch_n)
+        emb_apptime_click_n = Embedding(MAX_APPTIME_CLICK_N, self.iptime_click_n_dim)(apptime_click_n)
 
         # concatenate to main layer
         main_layer = concatenate([#Flatten()(emb_ip),
@@ -236,7 +247,12 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
                                   Flatten()(emb_iptime_device_n),
                                   Flatten()(emb_iptime_os_n),
                                   Flatten()(emb_iptime_ch_n),
-                                  Flatten()(emb_iptime_click_n)])
+                                  Flatten()(emb_iptime_click_n),
+                                  Flatten()(emb_apptime_ip_n),
+                                  Flatten()(emb_apptime_device_n),
+                                  Flatten()(emb_apptime_os_n),
+                                  Flatten()(emb_apptime_ch_n),
+                                  Flatten()(emb_apptime_click_n)])
 
         # MLP
         for i in range(len(self.dense_layers_unit)):
@@ -250,7 +266,9 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         output = Dense(1, activation='sigmoid')(main_layer)
 
         # Model
-        model = Model(inputs=[app, device, os, channel, click_time, iptime_app_n, iptime_device_n, iptime_os_n, iptime_ch_n, iptime_click_n],
+        model = Model(inputs=[app, device, os, channel, click_time,
+                              iptime_app_n, iptime_device_n, iptime_os_n, iptime_ch_n, iptime_click_n,
+                              apptime_ip_n, apptime_device_n, apptime_os_n, apptime_ch_n, apptime_click_n],
                       outputs=output)
 
         # optimizer
@@ -346,6 +364,10 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     all_df['iptime_device_n'] = all_df['iptime_device_n'].astype(np.int8)
     all_df['iptime_os_n'] = all_df['iptime_os_n'].astype(np.int8)
     all_df['iptime_ch_n'] = all_df['iptime_ch_n'].astype(np.int8)
+    all_df['apptime_ip_n'] = all_df['apptime_ip_n'].astype(np.int8)
+    all_df['apptime_device_n'] = all_df['apptime_device_n'].astype(np.int8)
+    all_df['apptime_os_n'] = all_df['apptime_os_n'].astype(np.int8)
+    all_df['apptime_ch_n'] = all_df['apptime_ch_n'].astype(np.int8)
     print(f"sample_df_.cols=\n{sample_df_.columns}, \ntest_df_.cols=\n{test_df_.columns}, \nall_df.cols=\n{all_df.columns}")
     print(f"all_df.dtypes=\n{all_df.dtypes}")
     if len(cols) > 0:
@@ -354,6 +376,7 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     global MAX_IP, MAX_APP, MAX_DEVICE, MAX_OS, MAX_CHANNEL, MAX_CLICK_TIME
     global MAX_DEVICE_OS_N, MAX_APP_CH_N, MAX_DEVICE_CH_N, MAX_OS_CH_N, MAX_CH_OS_N
     global MAX_IPTIME_APP_N, MAX_IPTIME_DEVICE_N, MAX_IPTIME_OS_N, MAX_IPTIME_CH_N, MAX_IPTIME_CLICK_N
+    global MAX_APPTIME_IP_N, MAX_APPTIME_DEVICE_N, MAX_APPTIME_OS_N, MAX_APPTIME_CH_N, MAX_APPTIME_CLICK_N
     MAX_IP = all_df.ip.max() + 1
     MAX_APP = all_df.app.max() + 1
     MAX_DEVICE = all_df.device.max() + 1
@@ -370,6 +393,11 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     MAX_IPTIME_OS_N = all_df.iptime_os_n.max() + 1
     MAX_IPTIME_CH_N = all_df.iptime_ch_n.max() + 1
     MAX_IPTIME_CLICK_N = all_df.iptime_click_n.max() + 1
+    MAX_APPTIME_IP_N = all_df.apptime_ip_n.max() + 1
+    MAX_APPTIME_DEVICE_N = all_df.apptime_device_n.max() + 1
+    MAX_APPTIME_OS_N = all_df.apptime_os_n.max() + 1
+    MAX_APPTIME_CH_N = all_df.apptime_ch_n.max() + 1
+    MAX_APPTIME_CLICK_N = all_df.apptime_click_n.max() + 1
     Logger.info(f"转换为Label后，各特征取值上限为: "
                 f"\nmax_ip={MAX_IP}"
                 f"\nmax_app={MAX_APP}"
@@ -385,8 +413,13 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
                 f"\nmax_iptime_app_n={MAX_IPTIME_APP_N}"
                 f"\nmax_iptime_device_n={MAX_IPTIME_DEVICE_N}"
                 f"\nmax_iptime_os_n={MAX_IPTIME_OS_N}"
-                f"\nmax_oiptime_ch_n={MAX_IPTIME_CH_N}"
-                f"\nmax_iptime_click_n={MAX_IPTIME_CLICK_N}")
+                f"\nmax_iptime_ch_n={MAX_IPTIME_CH_N}"
+                f"\nmax_iptime_click_n={MAX_IPTIME_CLICK_N}"
+                f"\nmax_apptime_ip_n={MAX_APPTIME_IP_N}"
+                f"\nmax_apptime_device_n={MAX_APPTIME_DEVICE_N}"
+                f"\nmax_apptime_os_n={MAX_APPTIME_OS_N}"
+                f"\nmax_apptime_ch_n={MAX_APPTIME_CH_N}"
+                f"\nmax_apptime_click_n={MAX_APPTIME_CLICK_N}")
     _test_df = all_df[len_sample:]
     _sample_df = all_df[:len_sample]
     del all_df
