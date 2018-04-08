@@ -122,6 +122,12 @@ class EmbMlpSkParamSelect():
         else:
             print("Wrong param_name in LgbParamSelect")
 
+    def get_model_param(self):
+        model_params = {}
+        for k, v in self.param_dict.items():
+            model_params[k] = v[0]
+        return model_params
+
 
 MAX_IP = MAX_APP = MAX_DEVICE = MAX_OS = MAX_CHANNEL = MAX_CLICK_TIME = -1
 MAX_DEVICE_OS_N = MAX_APP_CH_N = MAX_DEVICE_CH_N = MAX_OS_CH_N = MAX_CH_OS_N = -1
@@ -388,6 +394,24 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     return _sample_df, _test_df
 
 
+def try_add_one_feat(sample_df_, cv_iterable_, target_name_):
+    Logger.info(f"^^^^^^^^FEAT_LOOP_I={FEAT_LOOP_I}")
+    param = EmbMlpSkParamSelect("default")
+    model_ = EmbMlpModel(**param.get_model_param())
+    sample_X = sample_df_.drop(target_name_, axis=1)
+    sample_y = sample_df_[target_name_]
+    train_X = sample_X.iloc[cv_iterable_[2][0]]
+    train_y = sample_y.iloc[cv_iterable_[2][0]]
+    test_X = sample_X.iloc[cv_iterable_[2][1]]
+    test_y = sample_y.iloc[cv_iterable_[2][1]]
+    model_.fit(train_X, train_y)
+    y_prob = model_.predict_proba(test_X)[:, 1]
+    auc_score = roc_auc_score(y_true=test_y, y_score=y_prob)
+    Logger.info(f"^^^^^FEAT_LOOP_I={FEAT_LOOP_I}, auc_score={auc_score}")
+    del model_
+    gc.collect()
+
+
 if __name__ == "__main__":
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_30mins', verify_code=False)
@@ -405,50 +429,55 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    # Use GridSearch to coarse tuning and HyperOpt to fine tuning
-    tuning_type = 'sk'  # 'sk' or 'hp'
-
-    # Define model and tuning
-    if tuning_type == 'sk':
-        print('~Use sklearn GridSearch to tuning')
-        param = EmbMlpSkParamSelect("default")
-        adjust_para_list = print_param(param)
-        emb_mlp_model = EmbMlpModel()
-        emb_mlp_model.mlp_model.summary()
-        search_CV_model = grid_search_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name,
-                                                   search_switch="grid_search")  # random_search
-
-        # See the CV result
-        show_CV_result(search_CV_model, adjust_paras=adjust_para_list, classifi_scoring=param.classifier_score,
-                       output_file=True)
-
-        # Get best params model
-        best_model = EmbMlpModel(**search_CV_model.best_params_)
+    try_add_each_feat = False
+    if try_add_each_feat:
+        for FEAT_LOOP_I in range(6):  # 0 means add none
+            try_add_one_feat(sample_df, cv_iterable, target_name)
     else:
-        param = EmbMlpHpParamSelect("default")
-        hp_params = param.get_tuning_params()
-        if len(hp_params) == 0:
-            print('~Just use dedicated params to predict')
-            best_params = param.space_dict
-            # Use best_params to predict validation data.
-            use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
-        else:
-            print('~Use HyperOpt GridSearch to tuning')
+        # Use GridSearch to coarse tuning and HyperOpt to fine tuning
+        tuning_type = 'sk'  # 'sk' or 'hp'
+
+        # Define model and tuning
+        if tuning_type == 'sk':
+            print('~Use sklearn GridSearch to tuning')
+            param = EmbMlpSkParamSelect("default")
+            adjust_para_list = print_param(param)
             emb_mlp_model = EmbMlpModel()
             emb_mlp_model.mlp_model.summary()
-            best_space, trial_history = hyperopt_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name)
+            search_CV_model = grid_search_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name,
+                                                       search_switch="grid_search")  # random_search
 
-            # See the HyperOpt result
-            best_params = show_hp_result(best_space, trial_history, param.space_dict, ouput_file=True)
+            # See the CV result
+            show_CV_result(search_CV_model, adjust_paras=adjust_para_list, classifi_scoring=param.classifier_score,
+                           output_file=True)
 
-        # Get best params model
-        best_model = EmbMlpModel(**best_params)
+            # Get best params model
+            best_model = EmbMlpModel(**search_CV_model.best_params_)
+        else:
+            param = EmbMlpHpParamSelect("default")
+            hp_params = param.get_tuning_params()
+            if len(hp_params) == 0:
+                print('~Just use dedicated params to predict')
+                best_params = param.space_dict
+                # Use best_params to predict validation data.
+                use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
+            else:
+                print('~Use HyperOpt GridSearch to tuning')
+                emb_mlp_model = EmbMlpModel()
+                emb_mlp_model.mlp_model.summary()
+                best_space, trial_history = hyperopt_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name)
 
-    # Use best params to fit on sample dataset get LGB model
-    fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
+                # See the HyperOpt result
+                best_params = show_hp_result(best_space, trial_history, param.space_dict, ouput_file=True)
 
-    # Generate the test_result
-    file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
-    save_test_result(fitted_model, test_df, file_name)
+            # Get best params model
+            best_model = EmbMlpModel(**best_params)
+
+        # Use best params to fit on sample dataset get LGB model
+        fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
+
+        # Generate the test_result
+        file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
+        save_test_result(fitted_model, test_df, file_name)
 
 
