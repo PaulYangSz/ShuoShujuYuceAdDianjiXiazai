@@ -79,6 +79,16 @@ def update_max(max_old, data_df, col_str):
     return data_df[col_str].max() + 1 if data_df[col_str].max() > max_old else max_old + 1
 
 
+def get_gp_from_dict(data_df, spec):
+    Logger.info(f"GroupBy构造新特征<{spec['new']}>: by={spec['groupby']}, select={spec['select']}, agg={spec['agg_name']}")
+    all_cols = spec['groupby'] + [spec['select']]
+    if 'astype' in spec:
+        gp = data_df[all_cols].groupby(by=spec['groupby'])[spec['select']].agg(spec['agg']).reset_index().rename(index=str, columns={spec['select']: spec['new']}).astype(spec['astype'])
+    else:
+        gp = data_df[all_cols].groupby(by=spec['groupby'])[spec['select']].agg(spec['agg']).reset_index().rename(index=str, columns={spec['select']: spec['new']})
+    return gp
+
+
 class DataReader:
 
     def __init__(self, file_from:str, feats_construct:str, time_interval:str, verify_code: bool):
@@ -210,73 +220,42 @@ class DataReader:
     def add_day_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
         # reset_index() can cast Series to Dataframe
-        gp = data_df[['device', 'os']].groupby(by=['device'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'device_os_n'}).astype(np.int16)
-        data_df = data_df.merge(gp, on=['device'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['app', 'channel']].groupby(by=['app'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'app_ch_n'}).astype(np.int16)
-        data_df = data_df.merge(gp, on=['app'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['device', 'channel']].groupby(by=['device'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'device_ch_n'}).astype(np.int16)
-        data_df = data_df.merge(gp, on=['device'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['os', 'channel']].groupby(by=['os'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'os_ch_n'}).astype(np.int16)
-        data_df = data_df.merge(gp, on=['os'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['channel', 'os']].groupby(by=['channel'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'ch_os_n'}).astype(np.int16)
-        data_df = data_df.merge(gp, on=['channel'], how='left')
-        del gp
-        gc.collect()
+        group_by_list = [
+            {'groupby': ['device'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'device_os_n', 'astype': np.int16},
+            {'groupby': ['app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'app_ch_n', 'astype': np.int16},
+            {'groupby': ['device'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'device_ch_n', 'astype': np.int16},
+            {'groupby': ['os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'os_ch_n', 'astype': np.int16},
+            {'groupby': ['channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ch_os_n', 'astype': np.int16},
+        ]
+        for groupby in group_by_list:
+            gp = get_gp_from_dict(data_df, groupby)
+            data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
+            del gp
+            gc.collect()
         print(f"~ In add_day_stat_way() df.cols={data_df.columns.values}")
         self.day_stat_bool = True
         return data_df
 
     def add_time_interval_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
-        gp = data_df[['ip', 'click_time', 'app']].groupby(by=['ip', 'click_time'])['app'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'app': 'iptime_app_n'})
-        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['ip', 'click_time', 'device']].groupby(by=['ip', 'click_time'])['device'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'device': 'iptime_device_n'})
-        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['ip', 'click_time', 'os']].groupby(by=['ip', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'iptime_os_n'})
-        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['ip', 'click_time', 'channel']].groupby(by=['ip', 'click_time'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'iptime_ch_n'})
-        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['ip', 'click_time', 'channel']].groupby(by=['ip', 'click_time'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'iptime_click_n'})
-        data_df = data_df.merge(gp, on=['ip', 'click_time'], how='left')
-        del gp
-        gc.collect()
+        group_by_list = [
+            {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_app_n'},
+            {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_device_n'},
+            {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_os_n'},
+            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
+            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
 
-        gp = data_df[['app', 'click_time', 'ip']].groupby(by=['app', 'click_time'])['ip'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'ip': 'apptime_ip_n'})
-        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['app', 'click_time', 'device']].groupby(by=['app', 'click_time'])['device'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'device': 'apptime_device_n'})
-        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['app', 'click_time', 'os']].groupby(by=['app', 'click_time'])['os'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'os': 'apptime_os_n'})
-        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['app', 'click_time', 'channel']].groupby(by=['app', 'click_time'])['channel'].apply(pd.Series.nunique).reset_index().rename(index=str, columns={'channel': 'apptime_ch_n'})
-        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
-        del gp
-        gc.collect()
-        gp = data_df[['app', 'click_time', 'channel']].groupby(by=['app', 'click_time'])[['channel']].count().reset_index().rename(index=str, columns={'channel': 'apptime_click_n'})
-        data_df = data_df.merge(gp, on=['app', 'click_time'], how='left')
-        del gp
-        gc.collect()
+            {'groupby': ['app', 'click_time'], 'select': 'ip', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_ip_n'},
+            {'groupby': ['app', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_device_n'},
+            {'groupby': ['app', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_os_n'},
+            {'groupby': ['app', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_ch_n'},
+            {'groupby': ['app', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'apptime_click_n'},
+        ]
+        for groupby in group_by_list:
+            gp = get_gp_from_dict(data_df, groupby)
+            data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
+            del gp
+            gc.collect()
         print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")
         return data_df
 
