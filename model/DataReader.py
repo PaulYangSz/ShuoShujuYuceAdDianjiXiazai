@@ -176,21 +176,11 @@ class DataReader:
             'os': np.array(dataframe['os']),
             'channel': np.array(dataframe['channel']),
             'click_time': np.array(dataframe['click_time']),
-            # 'device_os_n': np.array(dataframe['device_os_n']),
-            # 'app_ch_n': np.array(dataframe['app_ch_n']),
-            # 'device_ch_n': np.array(dataframe['device_ch_n']),
-            # 'os_ch_n': np.array(dataframe['os_ch_n']),
-            # 'ch_os_n': np.array(dataframe['ch_os_n']),
             'iptime_app_n': np.array(dataframe['iptime_app_n']),
             'iptime_device_n': np.array(dataframe['iptime_device_n']),
             'iptime_os_n': np.array(dataframe['iptime_os_n']),
             'iptime_ch_n': np.array(dataframe['iptime_ch_n']),
             'iptime_click_n': np.array(dataframe['iptime_click_n']),
-            'apptime_ip_n': np.array(dataframe['apptime_ip_n']),
-            'apptime_device_n': np.array(dataframe['apptime_device_n']),
-            'apptime_os_n': np.array(dataframe['apptime_os_n']),
-            'apptime_ch_n': np.array(dataframe['apptime_ch_n']),
-            'apptime_click_n': np.array(dataframe['apptime_click_n']),
         }
         return X
 
@@ -244,12 +234,6 @@ class DataReader:
             {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_os_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
-
-            {'groupby': ['app', 'click_time'], 'select': 'ip', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_ip_n'},
-            {'groupby': ['app', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_device_n'},
-            {'groupby': ['app', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_os_n'},
-            {'groupby': ['app', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'apptime_ch_n'},
-            {'groupby': ['app', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'apptime_click_n'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(data_df, groupby)

@@ -130,9 +130,7 @@ class EmbMlpSkParamSelect():
 
 
 MAX_IP = MAX_APP = MAX_DEVICE = MAX_OS = MAX_CHANNEL = MAX_CLICK_TIME = -1
-MAX_DEVICE_OS_N = MAX_APP_CH_N = MAX_DEVICE_CH_N = MAX_OS_CH_N = MAX_CH_OS_N = -1
 MAX_IPTIME_APP_N = MAX_IPTIME_DEVICE_N = MAX_IPTIME_OS_N = MAX_IPTIME_CH_N = MAX_IPTIME_CLICK_N = -1
-MAX_APPTIME_IP_N = MAX_APPTIME_DEVICE_N = MAX_APPTIME_OS_N = MAX_APPTIME_CH_N = MAX_APPTIME_CLICK_N = -1
 FUNC_GET_KERAS_INPUT = None
 
 
@@ -152,7 +150,6 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
     """
 
     def __init__(self, ip_dim=50, app_dim=20, device_dim=30, os_dim=20, channel_dim=20, click_time_dim=10,
-                 device_os_n_dim=10, app_ch_n_dim=10, device_ch_n_dim=10, os_ch_n_dim=10, ch_os_n_dim=10,
                  iptime_app_n_dim=10, iptime_device_n_dim=10, iptime_os_n_dim=10, iptime_ch_n_dim=10, iptime_click_n_dim=20,
                  bn_flag=True, dense_layers_unit=(128, 64), drop_out=(0.2, 0.2), active=('relu', 'relu'),
                  epochs=1, batch_size=512*3, lr_init=0.015, lr_final=0.007):
@@ -162,11 +159,6 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         self.os_dim = os_dim
         self.channel_dim = channel_dim
         self.click_time_dim = click_time_dim
-        self.device_os_n_dim = device_os_n_dim
-        self.app_ch_n_dim = app_ch_n_dim
-        self.device_ch_n_dim = device_ch_n_dim
-        self.os_ch_n_dim = os_ch_n_dim
-        self.ch_os_n_dim = ch_os_n_dim
         self.iptime_app_n_dim = iptime_app_n_dim
         self.iptime_device_n_dim = iptime_device_n_dim
         self.iptime_os_n_dim = iptime_os_n_dim
@@ -196,21 +188,11 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         os = Input(shape=[1], name='os')
         channel = Input(shape=[1], name='channel')
         click_time = Input(shape=[1], name='click_time')
-        # device_os_n = Input(shape=[1], name='device_os_n')
-        # app_ch_n = Input(shape=[1], name='app_ch_n')
-        # device_ch_n = Input(shape=[1], name='device_ch_n')
-        # os_ch_n = Input(shape=[1], name='os_ch_n')
-        # ch_os_n = Input(shape=[1], name='ch_os_n')
         iptime_app_n = Input(shape=[1], name='iptime_app_n')
         iptime_device_n = Input(shape=[1], name='iptime_device_n')
         iptime_os_n = Input(shape=[1], name='iptime_os_n')
         iptime_ch_n = Input(shape=[1], name='iptime_ch_n')
         iptime_click_n = Input(shape=[1], name='iptime_click_n')
-        apptime_ip_n = Input(shape=[1], name='apptime_ip_n')
-        apptime_device_n = Input(shape=[1], name='apptime_device_n')
-        apptime_os_n = Input(shape=[1], name='apptime_os_n')
-        apptime_ch_n = Input(shape=[1], name='apptime_ch_n')
-        apptime_click_n = Input(shape=[1], name='apptime_click_n')
 
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
@@ -220,46 +202,30 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         emb_os = Embedding(MAX_OS, self.os_dim)(os)
         emb_channel = Embedding(MAX_CHANNEL, self.channel_dim)(channel)
         emb_click_time = Embedding(MAX_CLICK_TIME, self.click_time_dim)(click_time)
-        # emb_device_os_n = Embedding(MAX_DEVICE_OS_N, self.device_os_n_dim)(device_os_n)
-        # emb_app_ch_n = Embedding(MAX_APP_CH_N, self.app_ch_n_dim)(app_ch_n)
-        # emb_device_ch_n = Embedding(MAX_DEVICE_CH_N, self.device_ch_n_dim)(device_ch_n)
-        # emb_os_ch_n = Embedding(MAX_OS_CH_N, self.os_ch_n_dim)(os_ch_n)
-        # emb_ch_os_n = Embedding(MAX_CH_OS_N, self.ch_os_n_dim)(ch_os_n)
         emb_iptime_app_n = Embedding(MAX_IPTIME_APP_N, self.iptime_app_n_dim)(iptime_app_n)
         emb_iptime_device_n = Embedding(MAX_IPTIME_DEVICE_N, self.iptime_device_n_dim)(iptime_device_n)
         emb_iptime_os_n = Embedding(MAX_IPTIME_OS_N, self.iptime_os_n_dim)(iptime_os_n)
         emb_iptime_ch_n = Embedding(MAX_IPTIME_CH_N, self.iptime_ch_n_dim)(iptime_ch_n)
         emb_iptime_click_n = Embedding(MAX_IPTIME_CLICK_N, self.iptime_click_n_dim)(iptime_click_n)
-        emb_apptime_ip_n = Embedding(MAX_APPTIME_IP_N, self.iptime_app_n_dim)(apptime_ip_n)
-        emb_apptime_device_n = Embedding(MAX_APPTIME_DEVICE_N, self.iptime_device_n_dim)(apptime_device_n)
-        emb_apptime_os_n = Embedding(MAX_APPTIME_OS_N, self.iptime_os_n_dim)(apptime_os_n)
-        emb_apptime_ch_n = Embedding(MAX_APPTIME_CH_N, self.iptime_ch_n_dim)(apptime_ch_n)
-        emb_apptime_click_n = Embedding(MAX_APPTIME_CLICK_N, self.iptime_click_n_dim)(apptime_click_n)
 
         # concatenate to main layer
         base_subs = [Flatten()(emb_app), Flatten()(emb_device), Flatten()(emb_os), Flatten()(emb_channel), Flatten()(emb_click_time)]
-        add_subs = [Flatten()(emb_iptime_app_n), Flatten()(emb_iptime_device_n), Flatten()(emb_iptime_os_n), Flatten()(emb_iptime_ch_n), Flatten()(emb_iptime_click_n),
-                    Flatten()(emb_apptime_ip_n), Flatten()(emb_apptime_device_n), Flatten()(emb_apptime_os_n), Flatten()(emb_apptime_ch_n), Flatten()(emb_apptime_click_n)]
-        if FEAT_LOOP_I == 0:
-            main_layer = concatenate(base_subs)
-        else:
-            main_layer = concatenate(base_subs + [add_subs[FEAT_LOOP_I-1]])
-        # main_layer = concatenate([#Flatten()(emb_ip),
-        #                           Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
-        #                           Flatten()(emb_device),
-        #                           Flatten()(emb_os),
-        #                           Flatten()(emb_channel),
-        #                           Flatten()(emb_click_time),
-        #                           Flatten()(emb_iptime_app_n),
-        #                           Flatten()(emb_iptime_device_n),
-        #                           Flatten()(emb_iptime_os_n),
-        #                           Flatten()(emb_iptime_ch_n),
-        #                           Flatten()(emb_iptime_click_n),
-        #                           Flatten()(emb_apptime_ip_n),
-        #                           Flatten()(emb_apptime_device_n),
-        #                           Flatten()(emb_apptime_os_n),
-        #                           Flatten()(emb_apptime_ch_n),
-        #                           Flatten()(emb_apptime_click_n)])
+        add_subs = [Flatten()(emb_iptime_app_n), Flatten()(emb_iptime_device_n), Flatten()(emb_iptime_os_n), Flatten()(emb_iptime_ch_n), Flatten()(emb_iptime_click_n)]
+        # if FEAT_LOOP_I == 0:
+        #     main_layer = concatenate(base_subs)
+        # else:
+        #     main_layer = concatenate(base_subs + [add_subs[FEAT_LOOP_I-1]])
+        main_layer = concatenate([#Flatten()(emb_ip),
+                                  Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
+                                  Flatten()(emb_device),
+                                  Flatten()(emb_os),
+                                  Flatten()(emb_channel),
+                                  Flatten()(emb_click_time),
+                                  Flatten()(emb_iptime_app_n),
+                                  Flatten()(emb_iptime_device_n),
+                                  Flatten()(emb_iptime_os_n),
+                                  Flatten()(emb_iptime_ch_n),
+                                  Flatten()(emb_iptime_click_n)])
 
         # MLP
         for i in range(len(self.dense_layers_unit)):
@@ -274,8 +240,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
 
         # Model
         model = Model(inputs=[app, device, os, channel, click_time,
-                              iptime_app_n, iptime_device_n, iptime_os_n, iptime_ch_n, iptime_click_n,
-                              apptime_ip_n, apptime_device_n, apptime_os_n, apptime_ch_n, apptime_click_n],
+                              iptime_app_n, iptime_device_n, iptime_os_n, iptime_ch_n, iptime_click_n],
                       outputs=output)
 
         # optimizer
@@ -310,7 +275,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         history = self.mlp_model.fit(keras_X, y, epochs=self.epochs, batch_size=self.batch_size,
                                      validation_split=0.,  # 0.01
                                      # callbacks=[TensorBoard('./logs/'+log_subdir)],
-                                     verbose=2)  # 0 = 安静模式, 1 = 进度条, 2 = 每轮一行
+                                     verbose=1)  # 0 = 安静模式, 1 = 进度条, 2 = 每轮一行
         Logger.info('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
         print('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
 
@@ -360,7 +325,7 @@ def save_test_result(fitted_model, test_df, file_name):
     sub_df = pd.DataFrame()
     sub_df['click_id'] = test_df['click_id'].astype(np.int32)
     sub_df['is_attributed'] = fitted_model.predict_proba(test_df)[:, 1]
-    sub_df.to_csv(file_name, index=False)
+    sub_df.to_csv(file_name, index=False)  # , float_format='%.8f'
 
 
 def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, cols):
@@ -371,10 +336,6 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     all_df['iptime_device_n'] = all_df['iptime_device_n'].astype(np.uint8)
     all_df['iptime_os_n'] = all_df['iptime_os_n'].astype(np.uint8)
     all_df['iptime_ch_n'] = all_df['iptime_ch_n'].astype(np.uint8)
-    all_df['apptime_ip_n'] = all_df['apptime_ip_n'].astype(np.int16)
-    all_df['apptime_device_n'] = all_df['apptime_device_n'].astype(np.int16)
-    all_df['apptime_os_n'] = all_df['apptime_os_n'].astype(np.int16)
-    all_df['apptime_ch_n'] = all_df['apptime_ch_n'].astype(np.int16)
     print(f"sample_df_.cols=\n{sample_df_.columns}, \ntest_df_.cols=\n{test_df_.columns}, \nall_df.cols=\n{all_df.columns}")
     print(f"all_df.dtypes=\n{all_df.dtypes}")
     le = LabelEncoder()
@@ -384,30 +345,18 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     gc.collect()
     print(f"after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
     global MAX_IP, MAX_APP, MAX_DEVICE, MAX_OS, MAX_CHANNEL, MAX_CLICK_TIME
-    global MAX_DEVICE_OS_N, MAX_APP_CH_N, MAX_DEVICE_CH_N, MAX_OS_CH_N, MAX_CH_OS_N
     global MAX_IPTIME_APP_N, MAX_IPTIME_DEVICE_N, MAX_IPTIME_OS_N, MAX_IPTIME_CH_N, MAX_IPTIME_CLICK_N
-    global MAX_APPTIME_IP_N, MAX_APPTIME_DEVICE_N, MAX_APPTIME_OS_N, MAX_APPTIME_CH_N, MAX_APPTIME_CLICK_N
     MAX_IP = all_df.ip.max() + 1
     MAX_APP = all_df.app.max() + 1
     MAX_DEVICE = all_df.device.max() + 1
     MAX_OS = all_df.os.max() + 1
     MAX_CHANNEL = all_df.channel.max() + 1
     MAX_CLICK_TIME = all_df.click_time.max() + 1
-    # MAX_DEVICE_OS_N = all_df.device_os_n.max() + 1
-    # MAX_APP_CH_N = all_df.app_ch_n.max() + 1
-    # MAX_DEVICE_CH_N = all_df.device_ch_n.max() + 1
-    # MAX_OS_CH_N = all_df.os_ch_n.max() + 1
-    # MAX_CH_OS_N = all_df.ch_os_n.max() + 1
     MAX_IPTIME_APP_N = all_df.iptime_app_n.max() + 1
     MAX_IPTIME_DEVICE_N = all_df.iptime_device_n.max() + 1
     MAX_IPTIME_OS_N = all_df.iptime_os_n.max() + 1
     MAX_IPTIME_CH_N = all_df.iptime_ch_n.max() + 1
     MAX_IPTIME_CLICK_N = all_df.iptime_click_n.max() + 1
-    MAX_APPTIME_IP_N = all_df.apptime_ip_n.max() + 1
-    MAX_APPTIME_DEVICE_N = all_df.apptime_device_n.max() + 1
-    MAX_APPTIME_OS_N = all_df.apptime_os_n.max() + 1
-    MAX_APPTIME_CH_N = all_df.apptime_ch_n.max() + 1
-    MAX_APPTIME_CLICK_N = all_df.apptime_click_n.max() + 1
     Logger.info(f"将{str(cols)}转换为Label后，各特征取值上限为: "
                 f"\nmax_ip={MAX_IP}"
                 f"\nmax_app={MAX_APP}"
@@ -415,21 +364,11 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
                 f"\nmax_os={MAX_OS}"
                 f"\nmax_channel={MAX_CHANNEL}"
                 f"\nmax_click_time={MAX_CLICK_TIME}"
-                # f"\nmax_device_os_n={MAX_DEVICE_OS_N}"
-                # f"\nmax_app_ch_n={MAX_APP_CH_N}"
-                # f"\nmax_device_ch_n={MAX_DEVICE_CH_N}"
-                # f"\nmax_os_ch_n={MAX_OS_CH_N}"
-                # f"\nmax_ch_os_n={MAX_CH_OS_N}"
                 f"\nmax_iptime_app_n={MAX_IPTIME_APP_N}"
                 f"\nmax_iptime_device_n={MAX_IPTIME_DEVICE_N}"
                 f"\nmax_iptime_os_n={MAX_IPTIME_OS_N}"
                 f"\nmax_iptime_ch_n={MAX_IPTIME_CH_N}"
-                f"\nmax_iptime_click_n={MAX_IPTIME_CLICK_N}"
-                f"\nmax_apptime_ip_n={MAX_APPTIME_IP_N}"
-                f"\nmax_apptime_device_n={MAX_APPTIME_DEVICE_N}"
-                f"\nmax_apptime_os_n={MAX_APPTIME_OS_N}"
-                f"\nmax_apptime_ch_n={MAX_APPTIME_CH_N}"
-                f"\nmax_apptime_click_n={MAX_APPTIME_CLICK_N}")
+                f"\nmax_iptime_click_n={MAX_IPTIME_CLICK_N}")
     _test_df = all_df[len_sample:]
     _sample_df = all_df[:len_sample]
     del all_df
@@ -464,11 +403,8 @@ if __name__ == "__main__":
 
     # Continue to preprocess data
     need_label_cols = [# 'ip', 'app', 'device', 'os', 'channel',
-                       # 'device_os_n', 'app_ch_n', 'device_ch_n', 'os_ch_n', 'ch_os_n',
                        # 'iptime_app_n', 'iptime_device_n', 'iptime_os_n', 'iptime_ch_n',
         'iptime_click_n',
-                       # 'apptime_device_n', 'apptime_os_n', 'apptime_ch_n',
-        'apptime_ip_n', 'apptime_click_n'
     ]
     with timer("Use LabelEncoder().fit_transform to continue process data"):
         sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
@@ -476,7 +412,7 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    try_add_each_feat = True
+    try_add_each_feat = False
     if try_add_each_feat:
         for FEAT_LOOP_I in range(11):  # 0 means add none
             try_add_one_feat(sample_df, cv_iterable, target_name)
