@@ -237,22 +237,29 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         emb_apptime_click_n = Embedding(MAX_APPTIME_CLICK_N, self.iptime_click_n_dim)(apptime_click_n)
 
         # concatenate to main layer
-        main_layer = concatenate([#Flatten()(emb_ip),
-                                  Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
-                                  Flatten()(emb_device),
-                                  Flatten()(emb_os),
-                                  Flatten()(emb_channel),
-                                  Flatten()(emb_click_time),
-                                  Flatten()(emb_iptime_app_n),
-                                  Flatten()(emb_iptime_device_n),
-                                  Flatten()(emb_iptime_os_n),
-                                  Flatten()(emb_iptime_ch_n),
-                                  Flatten()(emb_iptime_click_n),
-                                  Flatten()(emb_apptime_ip_n),
-                                  Flatten()(emb_apptime_device_n),
-                                  Flatten()(emb_apptime_os_n),
-                                  Flatten()(emb_apptime_ch_n),
-                                  Flatten()(emb_apptime_click_n)])
+        base_subs = [Flatten()(emb_app), Flatten()(emb_device), Flatten()(emb_os), Flatten()(emb_channel), Flatten()(emb_click_time)]
+        add_subs = [Flatten()(emb_iptime_app_n), Flatten()(emb_iptime_device_n), Flatten()(emb_iptime_os_n), Flatten()(emb_iptime_ch_n), Flatten()(emb_iptime_click_n),
+                    Flatten()(emb_apptime_ip_n), Flatten()(emb_apptime_device_n), Flatten()(emb_apptime_os_n), Flatten()(emb_apptime_ch_n), Flatten()(emb_apptime_click_n)]
+        if FEAT_LOOP_I == 0:
+            main_layer = concatenate(base_subs)
+        else:
+            main_layer = concatenate(base_subs + [add_subs[FEAT_LOOP_I-1]])
+        # main_layer = concatenate([#Flatten()(emb_ip),
+        #                           Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
+        #                           Flatten()(emb_device),
+        #                           Flatten()(emb_os),
+        #                           Flatten()(emb_channel),
+        #                           Flatten()(emb_click_time),
+        #                           Flatten()(emb_iptime_app_n),
+        #                           Flatten()(emb_iptime_device_n),
+        #                           Flatten()(emb_iptime_os_n),
+        #                           Flatten()(emb_iptime_ch_n),
+        #                           Flatten()(emb_iptime_click_n),
+        #                           Flatten()(emb_apptime_ip_n),
+        #                           Flatten()(emb_apptime_device_n),
+        #                           Flatten()(emb_apptime_os_n),
+        #                           Flatten()(emb_apptime_ch_n),
+        #                           Flatten()(emb_apptime_click_n)])
 
         # MLP
         for i in range(len(self.dense_layers_unit)):
@@ -303,7 +310,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         history = self.mlp_model.fit(keras_X, y, epochs=self.epochs, batch_size=self.batch_size,
                                      validation_split=0.,  # 0.01
                                      # callbacks=[TensorBoard('./logs/'+log_subdir)],
-                                     verbose=1)  # 0 = 安静模式, 1 = 进度条, 2 = 每轮一行
+                                     verbose=2)  # 0 = 安静模式, 1 = 进度条, 2 = 每轮一行
         Logger.info('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
         print('[self.emb_GRU_model.fit] cost {:.4f}s'.format(time.time() - keras_fit_start))
 
@@ -359,20 +366,23 @@ def save_test_result(fitted_model, test_df, file_name):
 def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, cols):
     len_sample = len(sample_df_)
     all_df: pd.DataFrame = sample_df_.append(test_df_)
-    all_df['click_time'] = all_df['click_time'].astype(np.int8)
-    all_df['iptime_app_n'] = all_df['iptime_app_n'].astype(np.int8)
-    all_df['iptime_device_n'] = all_df['iptime_device_n'].astype(np.int8)
-    all_df['iptime_os_n'] = all_df['iptime_os_n'].astype(np.int8)
-    all_df['iptime_ch_n'] = all_df['iptime_ch_n'].astype(np.int8)
-    all_df['apptime_ip_n'] = all_df['apptime_ip_n'].astype(np.int8)
-    all_df['apptime_device_n'] = all_df['apptime_device_n'].astype(np.int8)
-    all_df['apptime_os_n'] = all_df['apptime_os_n'].astype(np.int8)
-    all_df['apptime_ch_n'] = all_df['apptime_ch_n'].astype(np.int8)
+    all_df['click_time'] = all_df['click_time'].astype(np.uint8)
+    all_df['iptime_app_n'] = all_df['iptime_app_n'].astype(np.uint8)
+    all_df['iptime_device_n'] = all_df['iptime_device_n'].astype(np.uint8)
+    all_df['iptime_os_n'] = all_df['iptime_os_n'].astype(np.uint8)
+    all_df['iptime_ch_n'] = all_df['iptime_ch_n'].astype(np.uint8)
+    all_df['apptime_ip_n'] = all_df['apptime_ip_n'].astype(np.int16)
+    all_df['apptime_device_n'] = all_df['apptime_device_n'].astype(np.int16)
+    all_df['apptime_os_n'] = all_df['apptime_os_n'].astype(np.int16)
+    all_df['apptime_ch_n'] = all_df['apptime_ch_n'].astype(np.int16)
     print(f"sample_df_.cols=\n{sample_df_.columns}, \ntest_df_.cols=\n{test_df_.columns}, \nall_df.cols=\n{all_df.columns}")
     print(f"all_df.dtypes=\n{all_df.dtypes}")
-    if len(cols) > 0:
-        all_df[cols] = all_df[cols].apply(LabelEncoder().fit_transform).astype(np.int16)
-        print(f"all_df.dtypes=\n{all_df.dtypes}")
+    le = LabelEncoder()
+    for lb_col in cols:
+        all_df[lb_col] = le.fit_transform(all_df[lb_col]).astype(np.int16)
+    del le
+    gc.collect()
+    print(f"after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
     global MAX_IP, MAX_APP, MAX_DEVICE, MAX_OS, MAX_CHANNEL, MAX_CLICK_TIME
     global MAX_DEVICE_OS_N, MAX_APP_CH_N, MAX_DEVICE_CH_N, MAX_OS_CH_N, MAX_CH_OS_N
     global MAX_IPTIME_APP_N, MAX_IPTIME_DEVICE_N, MAX_IPTIME_OS_N, MAX_IPTIME_CH_N, MAX_IPTIME_CLICK_N
@@ -398,7 +408,7 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, co
     MAX_APPTIME_OS_N = all_df.apptime_os_n.max() + 1
     MAX_APPTIME_CH_N = all_df.apptime_ch_n.max() + 1
     MAX_APPTIME_CLICK_N = all_df.apptime_click_n.max() + 1
-    Logger.info(f"转换为Label后，各特征取值上限为: "
+    Logger.info(f"将{str(cols)}转换为Label后，各特征取值上限为: "
                 f"\nmax_ip={MAX_IP}"
                 f"\nmax_app={MAX_APP}"
                 f"\nmax_device={MAX_DEVICE}"
@@ -431,6 +441,7 @@ def try_add_one_feat(sample_df_, cv_iterable_, target_name_):
     Logger.info(f"^^^^^^^^FEAT_LOOP_I={FEAT_LOOP_I}")
     param = EmbMlpSkParamSelect("default")
     model_ = EmbMlpModel(**param.get_model_param())
+    model_.mlp_model.summary()
     sample_X = sample_df_.drop(target_name_, axis=1)
     sample_y = sample_df_[target_name_]
     train_X = sample_X.iloc[cv_iterable_[2][0]]
@@ -454,7 +465,10 @@ if __name__ == "__main__":
     # Continue to preprocess data
     need_label_cols = [# 'ip', 'app', 'device', 'os', 'channel',
                        # 'device_os_n', 'app_ch_n', 'device_ch_n', 'os_ch_n', 'ch_os_n',
-                       'iptime_app_n', 'iptime_device_n', 'iptime_os_n', 'iptime_ch_n', 'iptime_click_n'
+                       # 'iptime_app_n', 'iptime_device_n', 'iptime_os_n', 'iptime_ch_n',
+        'iptime_click_n',
+                       # 'apptime_device_n', 'apptime_os_n', 'apptime_ch_n',
+        'apptime_ip_n', 'apptime_click_n'
     ]
     with timer("Use LabelEncoder().fit_transform to continue process data"):
         sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
@@ -462,9 +476,9 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    try_add_each_feat = False
+    try_add_each_feat = True
     if try_add_each_feat:
-        for FEAT_LOOP_I in range(6):  # 0 means add none
+        for FEAT_LOOP_I in range(11):  # 0 means add none
             try_add_one_feat(sample_df, cv_iterable, target_name)
     else:
         # Use GridSearch to coarse tuning and HyperOpt to fine tuning
