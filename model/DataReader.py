@@ -169,19 +169,10 @@ class DataReader:
         return test_df
 
     def get_keras_input(self, dataframe):
-        X = {
-            # 'ip': np.array(dataframe['ip']),
-            'app': np.array(dataframe['app']),
-            'device': np.array(dataframe['device']),
-            'os': np.array(dataframe['os']),
-            'channel': np.array(dataframe['channel']),
-            'click_time': np.array(dataframe['click_time']),
-            'iptime_app_n': np.array(dataframe['iptime_app_n']),
-            'iptime_device_n': np.array(dataframe['iptime_device_n']),
-            'iptime_os_n': np.array(dataframe['iptime_os_n']),
-            'iptime_ch_n': np.array(dataframe['iptime_ch_n']),
-            'iptime_click_n': np.array(dataframe['iptime_click_n']),
-        }
+        X = dict()
+        for col in dataframe.columns:
+            if col not in ['ip']:
+                X[col] = np.array(dataframe[col])
         return X
 
     def simplest_way(self, data_df, model_name):
@@ -234,6 +225,11 @@ class DataReader:
             {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_os_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
+
+            {'groupby': ['ip', 'click_time', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimeapp_click_n'},
+            {'groupby': ['ip', 'click_time', 'device'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedevice_click_n'},
+            {'groupby': ['ip', 'click_time', 'os'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimeos_click_n'},
+            {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(data_df, groupby)
