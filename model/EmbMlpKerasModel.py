@@ -129,8 +129,7 @@ class EmbMlpSkParamSelect():
         return model_params
 
 
-MAX_IP = MAX_APP = MAX_DEVICE = MAX_OS = MAX_CHANNEL = MAX_CLICK_TIME = -1
-MAX_IPTIME_APP_N = MAX_IPTIME_DEVICE_N = MAX_IPTIME_OS_N = MAX_IPTIME_CH_N = MAX_IPTIME_CLICK_N = -1
+MAX_FEATS_VALUES = dict()
 FUNC_GET_KERAS_INPUT = None
 
 
@@ -197,16 +196,16 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
         # emb_ip = Embedding(input_dim=MAX_IP, output_dim=self.ip_dim)(ip)
-        emb_app = Embedding(MAX_APP, self.app_dim)(app)  # [None, STEPS, emb_size]
-        emb_device = Embedding(MAX_DEVICE, self.device_dim)(device)
-        emb_os = Embedding(MAX_OS, self.os_dim)(os)
-        emb_channel = Embedding(MAX_CHANNEL, self.channel_dim)(channel)
-        emb_click_time = Embedding(MAX_CLICK_TIME, self.click_time_dim)(click_time)
-        emb_iptime_app_n = Embedding(MAX_IPTIME_APP_N, self.iptime_app_n_dim)(iptime_app_n)
-        emb_iptime_device_n = Embedding(MAX_IPTIME_DEVICE_N, self.iptime_device_n_dim)(iptime_device_n)
-        emb_iptime_os_n = Embedding(MAX_IPTIME_OS_N, self.iptime_os_n_dim)(iptime_os_n)
-        emb_iptime_ch_n = Embedding(MAX_IPTIME_CH_N, self.iptime_ch_n_dim)(iptime_ch_n)
-        emb_iptime_click_n = Embedding(MAX_IPTIME_CLICK_N, self.iptime_click_n_dim)(iptime_click_n)
+        emb_app = Embedding(MAX_FEATS_VALUES['MAX_APP'], self.app_dim)(app)  # [None, STEPS, emb_size]
+        emb_device = Embedding(MAX_FEATS_VALUES['MAX_DEVICE'], self.device_dim)(device)
+        emb_os = Embedding(MAX_FEATS_VALUES['MAX_OS'], self.os_dim)(os)
+        emb_channel = Embedding(MAX_FEATS_VALUES['MAX_CHANNEL'], self.channel_dim)(channel)
+        emb_click_time = Embedding(MAX_FEATS_VALUES['MAX_CLICK_TIME'], self.click_time_dim)(click_time)
+        emb_iptime_app_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_APP_N'], self.iptime_app_n_dim)(iptime_app_n)
+        emb_iptime_device_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_DEVICE_N'], self.iptime_device_n_dim)(iptime_device_n)
+        emb_iptime_os_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_OS_N'], self.iptime_os_n_dim)(iptime_os_n)
+        emb_iptime_ch_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_CH_N'], self.iptime_ch_n_dim)(iptime_ch_n)
+        emb_iptime_click_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_CLICK_N'], self.iptime_click_n_dim)(iptime_click_n)
 
         # concatenate to main layer
         base_subs = [Flatten()(emb_app), Flatten()(emb_device), Flatten()(emb_os), Flatten()(emb_channel), Flatten()(emb_click_time)]
@@ -323,54 +322,63 @@ def use_best_pred_valid(best_params_, sample_df, cv_, target_name):
 
 def save_test_result(fitted_model, test_df, file_name):
     sub_df = pd.DataFrame()
-    sub_df['click_id'] = test_df['click_id'].astype(np.int32)
+    sub_df['click_id'] = test_df['click_id']  # .astype(np.int32)
     sub_df['is_attributed'] = fitted_model.predict_proba(test_df)[:, 1]
     sub_df.to_csv(file_name, index=False)  # , float_format='%.8f'
 
 
-def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, cols):
+def convert_feats_int_type(feat_ser):
+    feat_max = feat_ser.max()
+    if feat_max < np.iinfo('uint8').max:
+        return feat_ser.astype('uint8')
+    elif feat_max < np.iinfo('uint16').max:
+        return feat_ser.astype('uint16')
+    elif feat_max < np.iinfo('uint32').max:
+        return feat_ser.astype('uint32')
+    else:
+        return feat_ser.astype('uint64')
+
+
+def convert_feats_float_type(feat_ser):
+    feat_max = feat_ser.max()
+    if feat_max < np.finfo('float16').max:
+        return feat_ser.astype('float16')
+    elif feat_max < np.finfo('float32').max:
+        return feat_ser.astype('float32')
+    else:
+        return feat_ser.astype('float64')
+
+
+def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, le_cols):
     len_sample = len(sample_df_)
     all_df: pd.DataFrame = sample_df_.append(test_df_)
-    all_df['click_time'] = all_df['click_time'].astype(np.uint8)
-    all_df['iptime_app_n'] = all_df['iptime_app_n'].astype(np.uint8)
-    all_df['iptime_device_n'] = all_df['iptime_device_n'].astype(np.uint8)
-    all_df['iptime_os_n'] = all_df['iptime_os_n'].astype(np.uint8)
-    all_df['iptime_ch_n'] = all_df['iptime_ch_n'].astype(np.uint8)
+    for col in all_df.columns:
+        if col not in ['ip', 'app', 'device', 'os', 'channel', 'click_time', 'is_attributed', 'click_id']:
+            if np.issubdtype(all_df[col].dtype, np.floating):
+                all_df[col] = convert_feats_float_type(all_df[col])
+            elif np.issubdtype(all_df[col].dtype, np.integer):
+                all_df[col] = convert_feats_int_type(all_df[col])
+            else:
+                pass
     print(f"sample_df_.cols=\n{sample_df_.columns}, \ntest_df_.cols=\n{test_df_.columns}, \nall_df.cols=\n{all_df.columns}")
-    print(f"all_df.dtypes=\n{all_df.dtypes}")
+    print(f"@@@all_df.dtypes=\n{all_df.dtypes}")
     le = LabelEncoder()
-    for lb_col in cols:
-        all_df[lb_col] = le.fit_transform(all_df[lb_col]).astype(np.int16)
+    for lb_col in le_cols:
+        all_df[lb_col] = le.fit_transform(all_df[lb_col])
+        all_df[lb_col] = convert_feats_int_type(all_df[lb_col])
     del le
     gc.collect()
-    print(f"after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
-    global MAX_IP, MAX_APP, MAX_DEVICE, MAX_OS, MAX_CHANNEL, MAX_CLICK_TIME
-    global MAX_IPTIME_APP_N, MAX_IPTIME_DEVICE_N, MAX_IPTIME_OS_N, MAX_IPTIME_CH_N, MAX_IPTIME_CLICK_N
-    MAX_IP = all_df.ip.max() + 1
-    MAX_APP = all_df.app.max() + 1
-    MAX_DEVICE = all_df.device.max() + 1
-    MAX_OS = all_df.os.max() + 1
-    MAX_CHANNEL = all_df.channel.max() + 1
-    MAX_CLICK_TIME = all_df.click_time.max() + 1
-    MAX_IPTIME_APP_N = all_df.iptime_app_n.max() + 1
-    MAX_IPTIME_DEVICE_N = all_df.iptime_device_n.max() + 1
-    MAX_IPTIME_OS_N = all_df.iptime_os_n.max() + 1
-    MAX_IPTIME_CH_N = all_df.iptime_ch_n.max() + 1
-    MAX_IPTIME_CLICK_N = all_df.iptime_click_n.max() + 1
-    Logger.info(f"将{str(cols)}转换为Label后，各特征取值上限为: "
-                f"\nmax_ip={MAX_IP}"
-                f"\nmax_app={MAX_APP}"
-                f"\nmax_device={MAX_DEVICE}"
-                f"\nmax_os={MAX_OS}"
-                f"\nmax_channel={MAX_CHANNEL}"
-                f"\nmax_click_time={MAX_CLICK_TIME}"
-                f"\nmax_iptime_app_n={MAX_IPTIME_APP_N}"
-                f"\nmax_iptime_device_n={MAX_IPTIME_DEVICE_N}"
-                f"\nmax_iptime_os_n={MAX_IPTIME_OS_N}"
-                f"\nmax_iptime_ch_n={MAX_IPTIME_CH_N}"
-                f"\nmax_iptime_click_n={MAX_IPTIME_CLICK_N}")
-    _test_df = all_df[len_sample:]
-    _sample_df = all_df[:len_sample]
+    print(f"@@@@@@@@@@after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
+    global MAX_FEATS_VALUES
+    for col in all_df.columns:
+        if col not in ['is_attributed', 'click_id']:
+            max_name = 'MAX_'+ col.upper()
+            MAX_FEATS_VALUES[max_name] = all_df[col].max() + 1
+    Logger.info(f"将{str(le_cols)}转换为Label后，各特征取值上限为: \n{MAX_FEATS_VALUES}")
+    _test_df = all_df.loc[len_sample:]
+    _test_df['click_id'] = _test_df['click_id'].astype(np.int32)
+    _sample_df = all_df.loc[:len_sample]
+    _sample_df['is_attributed'] = _sample_df['is_attributed'].astype(np.uint8)
     del all_df
     gc.collect()
     return _sample_df, _test_df
