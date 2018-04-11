@@ -226,9 +226,6 @@ class DataReader:
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
 
-            {'groupby': ['ip', 'click_time', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimeapp_click_n'},
-            {'groupby': ['ip', 'click_time', 'device'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedevice_click_n'},
-            {'groupby': ['ip', 'click_time', 'os'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimeos_click_n'},
             {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
         ]
         for groupby in group_by_list:

@@ -395,12 +395,12 @@ def try_add_one_feat(sample_df_, cv_iterable_, target_name_, new_col, add_flag):
     model_.fit(train_X, train_y)
     y_prob = model_.predict_proba(test_X)[:, 1]
     auc_score = roc_auc_score(y_true=test_y, y_score=y_prob)
-    if add_flag:
-        Logger.info(f"^^^^^ after add <{new_col}>, auc_score={auc_score}")
-        ALL_FEAT_COLS.remove(new_col)  # After add need remove for next new_col in
-    else:
-        Logger.info(f"^^^^^ after remove <{new_col}>, auc_score={auc_score}")
-        ALL_FEAT_COLS.append(new_col)  # After remove need add for next new_col out
+    Logger.info(f"^^^^^ after add/remove <{new_col}>, auc_score={auc_score}")
+    if new_col != '':
+        if add_flag:
+            ALL_FEAT_COLS.remove(new_col)  # After add need remove for next new_col in
+        else:
+            ALL_FEAT_COLS.append(new_col)  # After remove need add for next new_col out
     del model_
     gc.collect()
 
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     # Continue to preprocess data
     need_label_cols = [# 'ip', 'app', 'device', 'os', 'channel',
                        # 'iptime_app_n', 'iptime_device_n', 'iptime_os_n', 'iptime_ch_n',
-                       'iptime_click_n', 'iptimeapp_click_n', 'iptimedevice_click_n', 'iptimeos_click_n', 'iptimech_click_n',
+                       'iptime_click_n', 'iptimech_click_n',
     ]
     with timer("Use LabelEncoder().fit_transform to continue process data"):
         sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
