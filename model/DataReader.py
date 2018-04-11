@@ -171,7 +171,7 @@ class DataReader:
     def get_keras_input(self, dataframe):
         X = dict()
         for col in dataframe.columns:
-            if col not in ['ip']:
+            if col not in ['ip', 'is_attributed', 'click_id']:
                 X[col] = np.array(dataframe[col])
         return X
 
@@ -190,7 +190,7 @@ class DataReader:
                 else:
                     pass
         data_df['click_time'] = pd.to_datetime(data_df['click_time'])
-        data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate(self.time_interval, t))
+        data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate(self.time_interval, t)).astype('uint8')
         if model_name in ["LGB"]:
             data_df['click_time'] = data_df['click_time'].astype('category')
         cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \

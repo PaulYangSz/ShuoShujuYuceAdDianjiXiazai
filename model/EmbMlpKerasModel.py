@@ -129,8 +129,21 @@ class EmbMlpSkParamSelect():
         return model_params
 
 
-MAX_FEATS_VALUES = dict()
+MAX_FEATS_VALUES = dict()  # Control the emb_feat's max value(input_dim)
+ALL_FEAT_COLS = list()  # Control the model's Input
+EMB_FEATS_DIMS = dict()  # Control the emb_feat's output_dim, for now use get_dim_from_max() instead.
 FUNC_GET_KERAS_INPUT = None
+
+
+def get_dim_from_max(max_value):
+    if max_value < 30:
+        return 5
+    elif max_value < 120:
+        return 7
+    elif max_value < 1000:
+        return 10
+    else:
+        return 20
 
 
 class EmbMlpModel(BaseEstimator, ClassifierMixin):
@@ -181,50 +194,26 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
 
     def get_embedding_mlp_model(self):
         # Inputs
-        # ip = Input(shape=[1], name="ip")
-        app = Input(shape=[1], name='app')
-        device = Input(shape=[1], name='device')
-        os = Input(shape=[1], name='os')
-        channel = Input(shape=[1], name='channel')
-        click_time = Input(shape=[1], name='click_time')
-        iptime_app_n = Input(shape=[1], name='iptime_app_n')
-        iptime_device_n = Input(shape=[1], name='iptime_device_n')
-        iptime_os_n = Input(shape=[1], name='iptime_os_n')
-        iptime_ch_n = Input(shape=[1], name='iptime_ch_n')
-        iptime_click_n = Input(shape=[1], name='iptime_click_n')
+        input_dict = {}
+        for col in ALL_FEAT_COLS:
+            input_dict[col] = Input(shape=[1], name=col)
 
         # Embedding all category input to vectors
         # each int value must in [0, max_int)
-        # emb_ip = Embedding(input_dim=MAX_IP, output_dim=self.ip_dim)(ip)
-        emb_app = Embedding(MAX_FEATS_VALUES['MAX_APP'], self.app_dim)(app)  # [None, STEPS, emb_size]
-        emb_device = Embedding(MAX_FEATS_VALUES['MAX_DEVICE'], self.device_dim)(device)
-        emb_os = Embedding(MAX_FEATS_VALUES['MAX_OS'], self.os_dim)(os)
-        emb_channel = Embedding(MAX_FEATS_VALUES['MAX_CHANNEL'], self.channel_dim)(channel)
-        emb_click_time = Embedding(MAX_FEATS_VALUES['MAX_CLICK_TIME'], self.click_time_dim)(click_time)
-        emb_iptime_app_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_APP_N'], self.iptime_app_n_dim)(iptime_app_n)
-        emb_iptime_device_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_DEVICE_N'], self.iptime_device_n_dim)(iptime_device_n)
-        emb_iptime_os_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_OS_N'], self.iptime_os_n_dim)(iptime_os_n)
-        emb_iptime_ch_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_CH_N'], self.iptime_ch_n_dim)(iptime_ch_n)
-        emb_iptime_click_n = Embedding(MAX_FEATS_VALUES['MAX_IPTIME_CLICK_N'], self.iptime_click_n_dim)(iptime_click_n)
+        emb_dict = {}
+        for col in ALL_FEAT_COLS:
+            if not col.endswith('_var'):
+                dim = get_dim_from_max(MAX_FEATS_VALUES[col])
+                emb_dict[col] = Embedding(MAX_FEATS_VALUES[col], dim)(input_dict[col])
 
         # concatenate to main layer
-        base_subs = [Flatten()(emb_app), Flatten()(emb_device), Flatten()(emb_os), Flatten()(emb_channel), Flatten()(emb_click_time)]
-        add_subs = [Flatten()(emb_iptime_app_n), Flatten()(emb_iptime_device_n), Flatten()(emb_iptime_os_n), Flatten()(emb_iptime_ch_n), Flatten()(emb_iptime_click_n)]
-        # if FEAT_LOOP_I == 0:
-        #     main_layer = concatenate(base_subs)
-        # else:
-        #     main_layer = concatenate(base_subs + [add_subs[FEAT_LOOP_I-1]])
-        main_layer = concatenate([#Flatten()(emb_ip),
-                                  Flatten()(emb_app),  # [None, STEPS, dim] -> [None, STEPS * dim]
-                                  Flatten()(emb_device),
-                                  Flatten()(emb_os),
-                                  Flatten()(emb_channel),
-                                  Flatten()(emb_click_time),
-                                  Flatten()(emb_iptime_app_n),
-                                  Flatten()(emb_iptime_device_n),
-                                  Flatten()(emb_iptime_os_n),
-                                  Flatten()(emb_iptime_ch_n),
-                                  Flatten()(emb_iptime_click_n)])
+        concat_list = []
+        for col in emb_dict:
+            concat_list.append(Flatten()(emb_dict[col]))  # [None, STEPS, dim] -> [None, STEPS * dim]
+        for col in ALL_FEAT_COLS:
+            if col.endswith('_var'):
+                concat_list.append(input_dict[col])
+        main_layer = concatenate(concat_list)
 
         # MLP
         for i in range(len(self.dense_layers_unit)):
@@ -238,8 +227,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         output = Dense(1, activation='sigmoid')(main_layer)
 
         # Model
-        model = Model(inputs=[app, device, os, channel, click_time,
-                              iptime_app_n, iptime_device_n, iptime_os_n, iptime_ch_n, iptime_click_n],
+        model = Model(inputs=list(input_dict.values()),
                       outputs=output)
 
         # optimizer
@@ -270,6 +258,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         K.set_value(self.mlp_model.optimizer.decay, lr_decay)
 
         keras_X = FUNC_GET_KERAS_INPUT(X)
+        print(keras_X)
         keras_fit_start = time.time()
         history = self.mlp_model.fit(keras_X, y, epochs=self.epochs, batch_size=self.batch_size,
                                      validation_split=0.,  # 0.01
@@ -369,15 +358,15 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, le
     del le
     gc.collect()
     print(f"@@@@@@@@@@after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
-    global MAX_FEATS_VALUES
+    global MAX_FEATS_VALUES, ALL_FEAT_COLS
     for col in all_df.columns:
-        if col not in ['is_attributed', 'click_id']:
-            max_name = 'MAX_'+ col.upper()
-            MAX_FEATS_VALUES[max_name] = all_df[col].max() + 1
+        if col not in ['ip', 'is_attributed', 'click_id']:
+            ALL_FEAT_COLS.append(col)
+            MAX_FEATS_VALUES[col] = all_df[col].max() + 1
     Logger.info(f"将{str(le_cols)}转换为Label后，各特征取值上限为: \n{MAX_FEATS_VALUES}")
-    _test_df = all_df.loc[len_sample:]
+    _test_df = all_df[len_sample:].copy()
     _test_df['click_id'] = _test_df['click_id'].astype(np.int32)
-    _sample_df = all_df.loc[:len_sample]
+    _sample_df = all_df[:len_sample].copy()
     _sample_df['is_attributed'] = _sample_df['is_attributed'].astype(np.uint8)
     del all_df
     gc.collect()
