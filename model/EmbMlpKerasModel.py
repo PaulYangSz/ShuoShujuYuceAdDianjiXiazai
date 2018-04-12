@@ -422,10 +422,10 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    try_add_each_feat = False
+    try_add_each_feat = True
     if try_add_each_feat:
         try_add_flag = True
-        attempt_cols = ['', 'iptimeapp_click_n', 'iptimedevice_click_n', 'iptimeos_click_n', 'iptimech_click_n']
+        attempt_cols = ['', 'iptime_app_ent', 'iptime_device_ent', 'iptime_os_ent', 'iptime_ch_ent']
         if try_add_flag:
             for col in attempt_cols[1:]:
                 ALL_FEAT_COLS.remove(col)

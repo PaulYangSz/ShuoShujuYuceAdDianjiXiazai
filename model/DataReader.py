@@ -246,10 +246,10 @@ class DataReader:
 
             {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
 
-            {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
-            {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
-            {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
-            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_ch_ent'},
+            # {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
+            # {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
+            # {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
+            # {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_ch_ent'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(data_df, groupby)
@@ -259,19 +259,24 @@ class DataReader:
         print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")
         return data_df
 
-    def add_attributed_stat_way(self, data_df, model_name):
-        data_df = self.simplest_way(data_df, model_name)
-        data_df = self.add_time_interval_stat_way(data_df, model_name)
+    def add_attributed_stat_way(self, train_data_df, test_data_df):
         group_by_list = [
             {'groupby': ['app'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appday_attr_rate'},
+            {'groupby': ['device'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'deviceday_attr_rate'},
+            {'groupby': ['os'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'osday_attr_rate'},
+            {'groupby': ['channel'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'chday_attr_rate'},
+            {'groupby': ['app', 'channel'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appchday_attr_rate'},
+            {'groupby': ['app', 'os'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'apposday_attr_rate'},
+            {'groupby': ['app', 'device'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appdeviceday_attr_rate'},
         ]
         for groupby in group_by_list:
-            gp = get_gp_from_dict(data_df, groupby)
-            data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
+            gp = get_gp_from_dict(train_data_df, groupby)
+            train_data_df = train_data_df.merge(gp, on=groupby['groupby'], how='left')
+            test_data_df = test_data_df.merge(gp, on=groupby['groupby'], how='left')
             del gp
             gc.collect()
-        print(f"~ In add_attributed_stat_way() df.cols={data_df.columns.values}")
-        return data_df
+        print(f"~ In add_attributed_stat_way() df.cols={train_data_df.columns.values}")
+        return train_data_df, test_data_df
 
     def make_emb_max(self, train_feat_df):
         if self.simplest_bool:
