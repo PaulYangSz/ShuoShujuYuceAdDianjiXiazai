@@ -410,6 +410,8 @@ if __name__ == "__main__":
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_30mins', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
+    with timer(f"Add attributed feats to train and test df<attributed rate>"):
+        sample_df, test_df = data_reader.add_attributed_stat_way(sample_df, test_df)
 
     # Continue to preprocess data
     need_label_cols = [# 'ip', 'app', 'device', 'os', 'channel',
@@ -425,7 +427,7 @@ if __name__ == "__main__":
     try_add_each_feat = True
     if try_add_each_feat:
         try_add_flag = True
-        attempt_cols = ['', 'iptime_app_ent', 'iptime_device_ent', 'iptime_os_ent', 'iptime_ch_ent']
+        attempt_cols = ['', 'appday_attr_rate', 'deviceday_attr_rate', 'osday_attr_rate', 'chday_attr_rate', 'appchday_attr_rate', 'apposday_attr_rate', 'appdeviceday_attr_rate']
         if try_add_flag:
             for col in attempt_cols[1:]:
                 ALL_FEAT_COLS.remove(col)

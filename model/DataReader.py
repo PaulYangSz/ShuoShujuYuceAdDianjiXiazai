@@ -262,12 +262,9 @@ class DataReader:
     def add_attributed_stat_way(self, train_data_df, test_data_df):
         group_by_list = [
             {'groupby': ['app'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appday_attr_rate'},
-            {'groupby': ['device'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'deviceday_attr_rate'},
             {'groupby': ['os'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'osday_attr_rate'},
             {'groupby': ['channel'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'chday_attr_rate'},
-            {'groupby': ['app', 'channel'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appchday_attr_rate'},
             {'groupby': ['app', 'os'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'apposday_attr_rate'},
-            {'groupby': ['app', 'device'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appdeviceday_attr_rate'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(train_data_df, groupby)
