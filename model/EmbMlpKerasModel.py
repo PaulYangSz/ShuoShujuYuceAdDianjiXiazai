@@ -203,7 +203,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         # each int value must in [0, max_int)
         emb_dict = {}
         for col in ALL_FEAT_COLS:
-            if not col.endswith('_var'):
+            if not (col.endswith('_var') or col.endswith('_ent') or col.endswith('_rate')):
                 dim = get_dim_from_max(MAX_FEATS_VALUES[col])
                 emb_dict[col] = Embedding(MAX_FEATS_VALUES[col], dim)(input_dict[col])
 
@@ -212,7 +212,7 @@ class EmbMlpModel(BaseEstimator, ClassifierMixin):
         for col in emb_dict:
             concat_list.append(Flatten()(emb_dict[col]))  # [None, STEPS, dim] -> [None, STEPS * dim]
         for col in ALL_FEAT_COLS:
-            if col.endswith('_var'):
+            if col.endswith('_var') or col.endswith('_ent') or col.endswith('_rate'):
                 concat_list.append(input_dict[col])
         main_layer = concatenate(concat_list)
 

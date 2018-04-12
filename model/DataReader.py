@@ -89,6 +89,24 @@ def get_gp_from_dict(data_df, spec):
     return gp
 
 
+def get_value_counts_entroy(value_ser):
+    proba = value_ser.value_counts().values
+    if proba.size == 1:
+        return 0
+    else:
+        proba = proba / proba.sum()
+        return -np.dot(proba, np.log(proba))
+
+
+# Aggregation function
+def rate_calculation(x_attributed):
+    """Calculate the attributed rate. Scale by confidence"""
+    log_group = 100000  # 1000 views -> 60% confidence, 100 views -> 40% confidence
+    rate = x_attributed.sum() / float(x_attributed.count())
+    conf = np.min([1, np.log(x_attributed.count()) / log_group])
+    return rate * conf
+
+
 class DataReader:
 
     def __init__(self, file_from:str, feats_construct:str, time_interval:str, verify_code: bool):
@@ -227,6 +245,11 @@ class DataReader:
             {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
 
             {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
+
+            {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
+            {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
+            {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
+            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_ch_ent'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(data_df, groupby)
@@ -234,6 +257,20 @@ class DataReader:
             del gp
             gc.collect()
         print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")
+        return data_df
+
+    def add_attributed_stat_way(self, data_df, model_name):
+        data_df = self.simplest_way(data_df, model_name)
+        data_df = self.add_time_interval_stat_way(data_df, model_name)
+        group_by_list = [
+            {'groupby': ['app'], 'select': 'is_attributed', 'agg': rate_calculation, 'agg_name': 'attributed_rate', 'new': 'appday_attr_rate'},
+        ]
+        for groupby in group_by_list:
+            gp = get_gp_from_dict(data_df, groupby)
+            data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
+            del gp
+            gc.collect()
+        print(f"~ In add_attributed_stat_way() df.cols={data_df.columns.values}")
         return data_df
 
     def make_emb_max(self, train_feat_df):
