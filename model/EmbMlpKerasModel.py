@@ -26,6 +26,8 @@ from keras.models import Model
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping  # , TensorBoard
 from keras import backend as K
 from keras.optimizers import Adam, Adadelta, Adagrad, Adamax, RMSprop
+from keras import initializers, regularizers, constraints
+from keras.engine.topology import Layer, InputSpec
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, check_X_y
@@ -127,6 +129,88 @@ class EmbMlpSkParamSelect():
         for k, v in self.param_dict.items():
             model_params[k] = v[0]
         return model_params
+
+
+class Attention(Layer):
+    def __init__(self, step_dim,
+                 W_regularizer=None, b_regularizer=None,
+                 W_constraint=None, b_constraint=None,
+                 bias=True, **kwargs):
+        self.supports_masking = True
+        # self.init = initializations.get('glorot_uniform')
+        self.init = initializers.get('glorot_uniform')
+
+        self.W_regularizer = regularizers.get(W_regularizer)
+        self.b_regularizer = regularizers.get(b_regularizer)
+
+        self.W_constraint = constraints.get(W_constraint)
+        self.b_constraint = constraints.get(b_constraint)
+
+        self.bias = bias
+        self.step_dim = step_dim
+        self.features_dim = 0
+        super(Attention, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        assert len(input_shape) == 3
+
+        # W的shape为(input的最后一维长度相等,) 因为不是Seq2Seq，而是Seq2One，所以W的作用相当于y的前一个状态值，用于和每个Xi计算相似度
+        self.W = self.add_weight((input_shape[-1],),
+                                 initializer=self.init,
+                                 name='{}_W'.format(self.name),
+                                 regularizer=self.W_regularizer,
+                                 constraint=self.W_constraint)
+        # feats_dim为input的最后一维长度
+        self.features_dim = input_shape[-1]
+
+        if self.bias:
+            # b与input第一维数据长度相等
+            self.b = self.add_weight((input_shape[1],),
+                                     initializer='zero',
+                                     name='{}_b'.format(self.name),
+                                     regularizer=self.b_regularizer,
+                                     constraint=self.b_constraint)
+        else:
+            self.b = None
+
+        self.built = True
+
+    def compute_mask(self, input, input_mask=None):
+        return None
+
+    def call(self, x, mask=None):
+        input_shape = K.int_shape(x)  # input的维数==3
+        features_dim = self.features_dim  # input最后一维的长度
+        step_dim = input_shape[1]  # input中间维度的长度也就是step的长度
+        # eij = K.reshape([batch_size*steps, feats_dim] dot* [feats_dim, 1], (-1, steps)) = [batch_size, steps]
+        eij = K.reshape(K.dot(K.reshape(x, (-1, features_dim)), K.reshape(self.W, (features_dim, 1))), (-1, step_dim))
+        if self.bias:
+            eij += self.b[:input_shape[1]]
+        eij = K.tanh(eij)  # value to [-1, 1]
+        a = K.exp(eij)
+        if mask is not None:
+            a *= K.cast(mask, K.floatx())
+        a /= K.cast(K.sum(a, axis=1, keepdims=True) + K.epsilon(), K.floatx())  # exp() then sum() is Softmax
+        a = K.expand_dims(a)  # [batch_size, steps, 1]
+        weighted_input = x * a  # [batch_size, steps, feats_dim] 直接用x与系数a相乘
+        return K.sum(weighted_input, axis=1)
+
+    def get_w(self, x, mask=None):
+        input_shape = K.int_shape(x)
+        features_dim = self.features_dim
+        step_dim = input_shape[1]
+        eij = K.reshape(K.dot(K.reshape(x, (-1, features_dim)), K.reshape(self.W, (features_dim, 1))), (-1, step_dim))
+        if self.bias:
+            eij += self.b[:input_shape[1]]
+        eij = K.tanh(eij)
+        a = K.exp(eij)
+        if mask is not None:
+            a *= K.cast(mask, K.floatx())
+        a /= K.cast(K.sum(a, axis=1, keepdims=True) + K.epsilon(), K.floatx())  # [batch_size, steps]
+        return a
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], self.features_dim
 
 
 MAX_FEATS_VALUES = dict()  # Control the emb_feat's max value(input_dim)
