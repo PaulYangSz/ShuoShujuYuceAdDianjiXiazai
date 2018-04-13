@@ -79,7 +79,7 @@ def df2csr(wb, df, pick_hours=None):
     with timer("Adding next click times"):
         D = 2 ** 26
         df['category'] = (df['ip'].astype(str) + "_" + df['app'].astype(str) + "_" + df['device'].astype(str) \
-                          + "_" + df['os'].astype(str) + "_" + df['channel'].astype(str)).apply(hash) % D
+                          + "_" + df['os'].astype(str)).apply(hash) % D
         click_buffer = np.full(D, 3000000000, dtype=np.uint32)
         df['epochtime'] = df['click_time'].astype(np.int64) // 10 ** 9
         next_clicks = []
@@ -103,8 +103,6 @@ def df2csr(wb, df, pick_hours=None):
                      + " AXC" + df['app'].astype(str) + "_" + df['channel'].astype(str) \
                      + " OXC" + df['os'].astype(str) + "_" + df['channel'].astype(str) \
                      + " AXD" + df['app'].astype(str) + "_" + df['device'].astype(str) \
-                     + " AXOCXC" + df['app'].astype(str) + "_" + df['os'].astype(str) \
-                     + "_" + df['channel'].astype(str) \
                      + " IXA" + df['ip'].astype(str) + "_" + df['app'].astype(str) \
                      + " AXO" + df['app'].astype(str) + "_" + df['os'].astype(str) \
                      + " IDHC" + df['ip_day_hour_count'].astype(str) \
@@ -140,7 +138,7 @@ class ThreadWithReturnValue(threading.Thread):
 
 
 batchsize = 10000000
-D = 2 ** 22
+D = 2 ** 20
 
 wb = wordbatch.WordBatch(None, extractor=(WordHash, {"ngram_range": (1, 1), "analyzer": "word",
                                                      "lowercase": False, "n_features": D,
@@ -161,8 +159,8 @@ dtypes = {
 p = None
 rcount = 0
 for df_c in pd.read_csv('../input/talkingdata-adtracking-fraud-detection/train.csv', engine='c', chunksize=batchsize,
-                        # for df_c in pd.read_csv('../input/train.csv', engine='c', chunksize=batchsize,
-                        sep=",", dtype=dtypes):
+						# for df_c in pd.read_csv('../input/train.csv', engine='c', chunksize=batchsize,
+						sep=",", dtype=dtypes):
     rcount += batchsize
     # cpuStats()
     str_array, labels, weights = df2csr(wb, df_c, pick_hours={4, 5, 10, 13, 14})
@@ -184,13 +182,14 @@ for df_c in pd.read_csv('../input/talkingdata-adtracking-fraud-detection/train.c
     p.start()
 if p != None:  p.join()
 
+del (X)
 p = None
 click_ids = []
 test_preds = []
 rcount = 0
 for df_c in pd.read_csv('../input/talkingdata-adtracking-fraud-detection/test.csv', engine='c', chunksize=batchsize,
-                        # for df_c in pd.read_csv('../input/test.csv', engine='c', chunksize=batchsize,
-                        sep=",", dtype=dtypes):
+						# for df_c in pd.read_csv('../input/test.csv', engine='c', chunksize=batchsize,
+						sep=",", dtype=dtypes):
     rcount += batchsize
     if rcount % (10 * batchsize) == 0:
         print(rcount)
