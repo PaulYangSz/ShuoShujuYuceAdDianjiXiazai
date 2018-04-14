@@ -498,20 +498,21 @@ if __name__ == "__main__":
         sample_df, test_df = data_reader.add_attributed_stat_way(sample_df, test_df)
 
     # Continue to preprocess data
-    need_label_cols = [# 'ip', 'app', 'device', 'os', 'channel',
-                       # 'iptime_app_n', 'iptime_device_n', 'iptime_os_n', 'iptime_ch_n',
-                       'iptime_click_n', 'iptimech_click_n',
-    ]
+    need_label_cols = []
+    for col in ALL_FEAT_COLS:
+        if col.endswith('_click_n'):
+            need_label_cols.append(col)
     with timer("Use LabelEncoder().fit_transform to continue process data"):
         sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
 
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    try_add_each_feat = True
+    try_add_each_feat = False
     if try_add_each_feat:
         try_add_flag = True
-        attempt_cols = ['', 'appday_attr_rate', 'deviceday_attr_rate', 'osday_attr_rate', 'chday_attr_rate', 'appchday_attr_rate', 'apposday_attr_rate', 'appdeviceday_attr_rate']
+        attempt_cols = ['', 'iptimedevice_app_n', 'iptimedevice_ch_n', 'iptimedevice_click_n', 'iptimeos_app_n',
+                        'iptimeos_ch_n', 'iptimeos_click_n', 'iptimedeviceos_app_n', 'iptimedeviceos_ch_n', 'iptimedeviceos_click_n']
         if try_add_flag:
             for col in attempt_cols[1:]:
                 ALL_FEAT_COLS.remove(col)
