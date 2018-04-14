@@ -163,8 +163,6 @@ class DataReader:
                 train_feat_df = pd.concat([train_feat_df, self.construct_feats(train_df, model_name)], axis=0, ignore_index=True)
                 del train_df
                 gc.collect()
-        if model_name in ["MLP"]:
-            self.make_emb_max(train_feat_df)
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         index_start = 0
@@ -180,8 +178,6 @@ class DataReader:
             self.load_test()
         with timer(f"Construct test feats df<'{self.feats_construct}'>"):
             test_df = self.construct_feats(self.test_df, model_name)
-            if model_name in ["MLP"]:
-                self.get_emb_max(test_df)
             del self.test_df
             gc.collect()
         return test_df
@@ -278,48 +274,6 @@ class DataReader:
             gc.collect()
         print(f"~ In add_attributed_stat_way() df.cols={train_data_df.columns.values}")
         return train_data_df, test_data_df
-
-    def make_emb_max(self, train_feat_df):
-        if self.simplest_bool:
-            self.max_ip = train_feat_df['ip'].max()
-            self.max_app = train_feat_df['app'].max()
-            self.max_device = train_feat_df['device'].max()
-            self.max_os = train_feat_df['os'].max()
-            self.max_channel = train_feat_df['channel'].max()
-            self.max_click_time = train_feat_df['click_time'].max()
-        if self.day_stat_bool:
-            self.max_device_os_n = train_feat_df['device_os_n'].max()
-            self.max_app_ch_n = train_feat_df['app_ch_n'].max()
-            self.max_device_ch_n = train_feat_df['device_ch_n'].max()
-            self.max_os_ch_n = train_feat_df['os_ch_n'].max()
-            self.max_ch_os_n = train_feat_df['ch_os_n'].max()
-
-    def get_emb_max(self, test_df):
-        if self.simplest_bool:
-            self.max_ip = update_max(self.max_ip, test_df, 'ip')
-            self.max_app = update_max(self.max_app, test_df, 'app')
-            self.max_device = update_max(self.max_device, test_df, 'device')
-            self.max_os = update_max(self.max_os, test_df, 'os')
-            self.max_channel = update_max(self.max_channel, test_df, 'channel')
-            self.max_click_time = update_max(self.max_click_time, test_df, 'click_time')
-        if self.day_stat_bool:
-            self.max_device_os_n = update_max(self.max_device_os_n, test_df, 'device_os_n')
-            self.max_app_ch_n = update_max(self.max_app_ch_n, test_df, 'app_ch_n')
-            self.max_device_ch_n = update_max(self.max_device_ch_n, test_df, 'device_ch_n')
-            self.max_os_ch_n = update_max(self.max_os_ch_n, test_df, 'os_ch_n')
-            self.max_ch_os_n = update_max(self.max_ch_os_n, test_df, 'ch_os_n')
-            Logger.info(f"各特征取值上限为: "
-                        f"\nmax_ip={self.max_ip}"
-                        f"\nmax_app={self.max_app}"
-                        f"\nmax_device={self.max_device}"
-                        f"\nmax_os={self.max_os}"
-                        f"\nmax_channel={self.max_channel}"
-                        f"\nmax_click_time={self.max_click_time}"
-                        f"\nmax_device_os_n={self.max_device_os_n}"
-                        f"\nmax_app_ch_n={self.max_app_ch_n}"
-                        f"\nmax_device_ch_n={self.max_device_ch_n}"
-                        f"\nmax_os_ch_n={self.max_os_ch_n}"
-                        f"\nmax_ch_os_n={self.max_ch_os_n}")
 
 
 

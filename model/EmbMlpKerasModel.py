@@ -494,8 +494,8 @@ if __name__ == "__main__":
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_30mins', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
-    with timer(f"Add attributed feats to train and test df<attributed rate>"):
-        sample_df, test_df = data_reader.add_attributed_stat_way(sample_df, test_df)
+    # with timer(f"Add attributed feats to train and test df<attributed rate>"):
+    #     sample_df, test_df = data_reader.add_attributed_stat_way(sample_df, test_df)
 
     # Continue to preprocess data
     need_label_cols = []
@@ -508,58 +508,71 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    try_add_each_feat = False
-    if try_add_each_feat:
-        try_add_flag = True
-        attempt_cols = ['', 'iptimedevice_app_n', 'iptimedevice_ch_n', 'iptimedevice_click_n', 'iptimeos_app_n',
-                        'iptimeos_ch_n', 'iptimeos_click_n', 'iptimedeviceos_app_n', 'iptimedeviceos_ch_n', 'iptimedeviceos_click_n']
-        if try_add_flag:
-            for col in attempt_cols[1:]:
-                ALL_FEAT_COLS.remove(col)
-        for alter_col in attempt_cols:  # '' means not add or remove
-            try_add_one_feat(sample_df, cv_iterable, target_name, alter_col, try_add_flag)
-    else:
-        # Use GridSearch to coarse tuning and HyperOpt to fine tuning
-        tuning_type = 'sk'  # 'sk' or 'hp'
-
-        # Define model and tuning
-        if tuning_type == 'sk':
-            print('~Use sklearn GridSearch to tuning')
-            param = EmbMlpSkParamSelect("default")
-            adjust_para_list = print_param(param)
-            emb_mlp_model = EmbMlpModel()
-            emb_mlp_model.mlp_model.summary()
-            search_CV_model = grid_search_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name,
-                                                       search_switch="grid_search")  # random_search
-
-            # See the CV result
-            show_CV_result(search_CV_model, adjust_paras=adjust_para_list, classifi_scoring=param.classifier_score,
-                           output_file=True)
-
-            # Get best params model
-            best_model = EmbMlpModel(**search_CV_model.best_params_)
+    only_submit = True
+    if not only_submit:
+        try_add_each_feat = False
+        if try_add_each_feat:
+            try_add_flag = True
+            attempt_cols = ['', 'iptimedevice_app_n', 'iptimedevice_ch_n', 'iptimedevice_click_n', 'iptimeos_app_n',
+                            'iptimeos_ch_n', 'iptimeos_click_n', 'iptimedeviceos_app_n', 'iptimedeviceos_ch_n', 'iptimedeviceos_click_n']
+            if try_add_flag:
+                for col in attempt_cols[1:]:
+                    ALL_FEAT_COLS.remove(col)
+            for alter_col in attempt_cols:  # '' means not add or remove
+                try_add_one_feat(sample_df, cv_iterable, target_name, alter_col, try_add_flag)
         else:
-            param = EmbMlpHpParamSelect("default")
-            hp_params = param.get_tuning_params()
-            if len(hp_params) == 0:
-                print('~Just use dedicated params to predict')
-                best_params = param.space_dict
-                # Use best_params to predict validation data.
-                use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
-            else:
-                print('~Use HyperOpt GridSearch to tuning')
+            # Use GridSearch to coarse tuning and HyperOpt to fine tuning
+            tuning_type = 'sk'  # 'sk' or 'hp'
+
+            # Define model and tuning
+            if tuning_type == 'sk':
+                print('~Use sklearn GridSearch to tuning')
+                param = EmbMlpSkParamSelect("default")
+                adjust_para_list = print_param(param)
                 emb_mlp_model = EmbMlpModel()
                 emb_mlp_model.mlp_model.summary()
-                best_space, trial_history = hyperopt_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name)
+                search_CV_model = grid_search_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name,
+                                                           search_switch="grid_search")  # random_search
 
-                # See the HyperOpt result
-                best_params = show_hp_result(best_space, trial_history, param.space_dict, ouput_file=True)
+                # See the CV result
+                show_CV_result(search_CV_model, adjust_paras=adjust_para_list, classifi_scoring=param.classifier_score,
+                               output_file=True)
 
-            # Get best params model
-            best_model = EmbMlpModel(**best_params)
+                # Get best params model
+                best_model = EmbMlpModel(**search_CV_model.best_params_)
+            else:
+                param = EmbMlpHpParamSelect("default")
+                hp_params = param.get_tuning_params()
+                if len(hp_params) == 0:
+                    print('~Just use dedicated params to predict')
+                    best_params = param.space_dict
+                    # Use best_params to predict validation data.
+                    use_best_pred_valid(best_params, sample_df, cv_iterable, target_name)
+                else:
+                    print('~Use HyperOpt GridSearch to tuning')
+                    emb_mlp_model = EmbMlpModel()
+                    emb_mlp_model.mlp_model.summary()
+                    best_space, trial_history = hyperopt_tuning_model(emb_mlp_model, param, sample_df, cv_iterable, target_name)
 
+                    # See the HyperOpt result
+                    best_params = show_hp_result(best_space, trial_history, param.space_dict, ouput_file=True)
+
+                # Get best params model
+                best_model = EmbMlpModel(**best_params)
+
+            # Use best params to fit on sample dataset get LGB model
+            fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
+
+            # Generate the test_result
+            file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
+            save_test_result(fitted_model, test_df, file_name)
+    else:
+        param = EmbMlpSkParamSelect("default")
+        model_init = EmbMlpModel(**param.get_model_param())
+        model_init.mlp_model.summary()
         # Use best params to fit on sample dataset get LGB model
-        fitted_model = get_best_param_fitted_model(best_model, sample_df, target_name)
+        sample_df = sample_df.iloc[cv_iterable[0][0]]  # 0,0: 8&9; 0,1: 7; 1,1: 8; 2,1: 9
+        fitted_model = get_best_param_fitted_model(model_init, sample_df, target_name)
 
         # Generate the test_result
         file_name = "../output/emb_mlp_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
