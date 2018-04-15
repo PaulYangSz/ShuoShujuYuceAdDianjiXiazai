@@ -508,16 +508,21 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    only_submit = True
+    only_submit = False
     if not only_submit:
-        try_add_each_feat = False
+        try_add_each_feat = True
         if try_add_each_feat:
             try_add_flag = True
-            attempt_cols = ['', 'iptimedevice_app_n', 'iptimedevice_ch_n', 'iptimedevice_click_n', 'iptimeos_app_n',
-                            'iptimeos_ch_n', 'iptimeos_click_n', 'iptimedeviceos_app_n', 'iptimedeviceos_ch_n', 'iptimedeviceos_click_n']
+            attempt_cols = ['', 'iptimedeviceosch_app_n', 'iptimedeviceosch_click_n', 'iptimedeviceosapp_ch_n', 'iptimedeviceosapp_click_n',
+                            'ipdeviceosch_app_n', 'ipdeviceosch_click_n', 'ipdeviceosapp_ch_n', 'ipdeviceosapp_click_n', 'ipdeviceosappch_click_n']
             if try_add_flag:
                 for col in attempt_cols[1:]:
-                    ALL_FEAT_COLS.remove(col)
+                    try:
+                        ALL_FEAT_COLS.remove(col)
+                    except:
+                        print(ALL_FEAT_COLS)
+                        print(col)
+                        assert False
             for alter_col in attempt_cols:  # '' means not add or remove
                 try_add_one_feat(sample_df, cv_iterable, target_name, alter_col, try_add_flag)
         else:
@@ -571,7 +576,7 @@ if __name__ == "__main__":
         model_init = EmbMlpModel(**param.get_model_param())
         model_init.mlp_model.summary()
         # Use best params to fit on sample dataset get LGB model
-        sample_df = sample_df.iloc[cv_iterable[0][0]]  # 0,0: 8&9; 0,1: 7; 1,1: 8; 2,1: 9
+        # sample_df = sample_df.iloc[cv_iterable[2][1]]  # 0,0: 8&9; 0,1: 7; 1,1: 8; 2,1: 9
         fitted_model = get_best_param_fitted_model(model_init, sample_df, target_name)
 
         # Generate the test_result
