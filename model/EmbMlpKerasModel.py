@@ -512,9 +512,10 @@ if __name__ == "__main__":
     if not only_submit:
         try_add_each_feat = True
         if try_add_each_feat:
-            try_add_flag = True
-            attempt_cols = ['', 'iptimedeviceosch_app_n', 'iptimedeviceosch_click_n', 'iptimedeviceosapp_ch_n', 'iptimedeviceosapp_click_n',
-                            'ipdeviceosch_app_n', 'ipdeviceosch_click_n', 'ipdeviceosapp_ch_n', 'ipdeviceosapp_click_n', 'ipdeviceosappch_click_n']
+            try_add_flag = False
+            # attempt_cols = ['', 'ipdeviceappch_os_n', 'ipdeviceappch_click_n', 'ipapposch_device_n', 'ipapposch_click_n',
+            #                 'appdeviceosch_ip_n', 'appdeviceosch_click_n']
+            attempt_cols = [''] + ALL_FEAT_COLS
             if try_add_flag:
                 for col in attempt_cols[1:]:
                     try:

@@ -254,6 +254,10 @@ class DataReader:
             {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosapp_click_n'},
             {'groupby': ['ip', 'device', 'os', 'app', 'channel'], 'select': 'click_time', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosappch_click_n'},
 
+            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipdeviceappch_os_n'},
+            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceappch_click_n'},
+            {'groupby': ['ip', 'app', 'os', 'channel'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipapposch_device_n'},
+
             # {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
             # {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
             # {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
