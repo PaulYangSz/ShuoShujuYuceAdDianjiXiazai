@@ -224,11 +224,12 @@ class DataReader:
         data_df = self.simplest_way(data_df, model_name)
         # reset_index() can cast Series to Dataframe
         group_by_list = [
-            {'groupby': ['device'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'device_os_n', 'astype': np.int16},
-            {'groupby': ['app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'app_ch_n', 'astype': np.int16},
-            {'groupby': ['device'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'device_ch_n', 'astype': np.int16},
-            {'groupby': ['os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'os_ch_n', 'astype': np.int16},
-            {'groupby': ['channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ch_os_n', 'astype': np.int16},
+            {'groupby': ['ip', 'app'], 'select': 'channnel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipapp_ch_n'},
+            {'groupby': ['ip', 'app'], 'select': 'channnel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapp_click_n'},
+            {'groupby': ['ip', 'app', 'os'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipappos_ch_n'},
+            {'groupby': ['ip', 'app', 'os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipappos_click_n'},
+            {'groupby': ['ip', 'app', 'device'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipappdevice_ch_n'},
+            {'groupby': ['ip', 'app', 'device'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipappdevice_click_n'},
         ]
         for groupby in group_by_list:
             gp = get_gp_from_dict(data_df, groupby)
