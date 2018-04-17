@@ -165,12 +165,20 @@ class DataReader:
                 gc.collect()
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
-        index_start = 0
-        for len_ in each_len:
-            train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start+len_:].tolist())
+        multi_fold = True
+        if multi_fold:
+            index_start = 0
+            for len_ in each_len:
+                train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start+len_:].tolist())
+                test_idx = np.array(train_feat_df.index[index_start: index_start + len_].tolist())
+                cv_index_list.append((train_idx, test_idx))
+                index_start += len_
+        else:
+            index_start = each_len[0] + each_len[1]
+            len_ = each_len[2]
+            train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start + len_:].tolist())
             test_idx = np.array(train_feat_df.index[index_start: index_start + len_].tolist())
             cv_index_list.append((train_idx, test_idx))
-            index_start += len_
         return train_feat_df, cv_index_list, self.target
 
     def get_test_feats_df(self, model_name: str):

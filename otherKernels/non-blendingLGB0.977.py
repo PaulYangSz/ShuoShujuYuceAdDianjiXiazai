@@ -106,7 +106,7 @@ def DO(frm,to,fileno):
     gc.collect()
     
     naddfeat = 9
-    for i in range(0, naddfeat):
+    for i in range(0, naddfeat):  # QQ==4:  计算nunique; QQ==5: 计算cumcount
         if i==0: selcols=['ip', 'channel']; QQ=4;
         if i==1: selcols=['ip', 'device', 'os', 'app']; QQ=5;
         if i==2: selcols=['ip', 'day', 'hour']; QQ=4;
