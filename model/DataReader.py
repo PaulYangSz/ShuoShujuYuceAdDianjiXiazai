@@ -221,11 +221,10 @@ class DataReader:
         return data_df[cols]
 
     def add_day_stat_way(self, data_df, model_name):
-        data_df = self.simplest_way(data_df, model_name)
+        # data_df = self.simplest_way(data_df, model_name)
         # reset_index() can cast Series to Dataframe
         group_by_list = [
-            {'groupby': ['ip', 'app'], 'select': 'channnel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipapp_ch_n'},
-            {'groupby': ['ip', 'app'], 'select': 'channnel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapp_click_n'},
+            {'groupby': ['ip', 'app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapp_click_n'},
             {'groupby': ['ip', 'app', 'os'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipappos_ch_n'},
             {'groupby': ['ip', 'app', 'os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipappos_click_n'},
             {'groupby': ['ip', 'app', 'device'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipappdevice_ch_n'},
@@ -242,6 +241,7 @@ class DataReader:
 
     def add_time_interval_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
+        # data_df = self.add_day_stat_way(data_df, model_name)
         group_by_list = [
             {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_app_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_device_n'},
@@ -254,18 +254,18 @@ class DataReader:
             {'groupby': ['ip', 'click_time', 'device'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedevice_app_n'},
             {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceos_ch_n'},
             {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceos_click_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'iptimedeviceosch_app_n'},
+            {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceosch_app_n'},
             {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosch_click_n'},
             {'groupby': ['ip', 'click_time', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosapp_click_n'},
-            {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipdeviceosch_app_n'},
+            {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosch_app_n'},
             {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosch_click_n'},
-            {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipdeviceosapp_ch_n'},
+            {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosapp_ch_n'},
             {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosapp_click_n'},
             {'groupby': ['ip', 'device', 'os', 'app', 'channel'], 'select': 'click_time', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosappch_click_n'},
 
-            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipdeviceappch_os_n'},
+            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceappch_os_n'},
             {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceappch_click_n'},
-            {'groupby': ['ip', 'app', 'os', 'channel'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'count', 'new': 'ipapposch_device_n'},
+            {'groupby': ['ip', 'app', 'os', 'channel'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapposch_device_n'},
 
             # {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
             # {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
