@@ -491,7 +491,7 @@ def try_add_one_feat(sample_df_, cv_iterable_, target_name_, new_col, add_flag):
 
 if __name__ == "__main__":
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_30mins', verify_code=False)
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_1hour', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
     # with timer(f"Add attributed feats to train and test df<attributed rate>"):
@@ -510,7 +510,7 @@ if __name__ == "__main__":
 
     only_submit = False
     if not only_submit:
-        try_add_each_feat = True
+        try_add_each_feat = False
         if try_add_each_feat:
             try_add_flag = True
             attempt_cols = ['', 'ipapp_ch_n', 'ipapp_click_n', 'ipappos_ch_n', 'ipappos_click_n',
