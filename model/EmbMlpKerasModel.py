@@ -445,7 +445,7 @@ def label_feats_and_set_max(sample_df_: pd.DataFrame, test_df_: pd.DataFrame, le
     print(f"@@@@@@@@@@after LabelEncoder all_df.dtypes=\n{all_df.dtypes}")
     global MAX_FEATS_VALUES, ALL_FEAT_COLS
     for col in all_df.columns:
-        if col not in ['ip', 'is_attributed', 'click_id']:
+        if col not in ['ip', 'is_attributed', 'click_id', 'click_dt']:
             ALL_FEAT_COLS.append(col)
             MAX_FEATS_VALUES[col] = all_df[col].max() + 1
     Logger.info(f"将{str(le_cols)}转换为Label后，各特征取值上限为: \n{MAX_FEATS_VALUES}")
@@ -491,7 +491,7 @@ def try_add_one_feat(sample_df_, cv_iterable_, target_name_, new_col, add_flag):
 
 if __name__ == "__main__":
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_1hour', verify_code=False)
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=False)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("MLP")
     test_df = data_reader.get_test_feats_df("MLP")
     # with timer(f"Add attributed feats to train and test df<attributed rate>"):

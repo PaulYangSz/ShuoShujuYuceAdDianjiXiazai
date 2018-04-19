@@ -71,6 +71,11 @@ def datetime2cate(conver_by: str, _time: datetime):
                          9: 3, 10: 4, 11: 4,
                          13: 5, 14: 6, 15: 6}
         return date2cate_map[_h]
+    elif conver_by == 'test_2hour':
+        date2cate_map = {4: 1, 5: 1, 6: 1,
+                         9: 2, 10: 2, 11: 2,
+                         13: 3, 14: 3, 15: 3}
+        return date2cate_map[_h]
     else:
         return None
 
