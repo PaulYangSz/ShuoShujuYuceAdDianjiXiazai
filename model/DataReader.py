@@ -2,6 +2,7 @@
 DataReader is a class which is used to read dataset and return train/validation/test dataframe.
 """
 
+import os
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -154,13 +155,13 @@ class DataReader:
     def load_test(self):
         self.test_df = pd.read_csv('../data/test.csv', dtype=DTYPES, nrows=self.n_rows)
 
-    def construct_feats(self, data_df: pd.DataFrame, model_name: str):
+    def construct_feats(self, data_df: pd.DataFrame, model_name: str, day):
         if self.feats_construct == 'simplest':
             return self.simplest_way(data_df, model_name)
         elif self.feats_construct == "add_day_stat":
             return self.add_day_stat_way(data_df, model_name)
         elif self.feats_construct == "add_time_interval_stat":
-            return self.add_time_interval_stat_way(data_df, model_name)
+            return self.add_time_interval_stat_way(data_df, model_name, day)
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
@@ -169,12 +170,14 @@ class DataReader:
             self.load_train()
         train_feat_df = pd.DataFrame()
         each_len = []
+        day = 7
         for train_df in self.train_df_list:
             with timer(f"Construct train feats df<'{self.feats_construct}'>"):
                 each_len.append(train_df.shape[0])
-                train_feat_df = pd.concat([train_feat_df, self.construct_feats(train_df, model_name)], axis=0, ignore_index=True)
+                train_feat_df = pd.concat([train_feat_df, self.construct_feats(train_df, model_name, day)], axis=0, ignore_index=True)
                 del train_df
                 gc.collect()
+                day += 1
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         multi_fold = True
@@ -197,7 +200,7 @@ class DataReader:
         with timer("Loading test csv file"):
             self.load_test()
         with timer(f"Construct test feats df<'{self.feats_construct}'>"):
-            test_df = self.construct_feats(self.test_df, model_name)
+            test_df = self.construct_feats(self.test_df, model_name, 10)
             del self.test_df
             gc.collect()
         return test_df
@@ -252,45 +255,55 @@ class DataReader:
         self.day_stat_bool = True
         return data_df
 
-    def add_time_interval_stat_way(self, data_df, model_name):
+    def add_time_interval_stat_way(self, data_df, model_name, day):
         data_df = self.simplest_way(data_df, model_name)
         # data_df = self.add_day_stat_way(data_df, model_name)
-        data_df = self.add_next_click_stat_way(data_df)
-        group_by_list = [
-            {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_app_n'},
-            {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_device_n'},
-            {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_os_n'},
-            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
-            {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
+        data_df = self.add_next_click_stat_way(data_df, day)
 
-            {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
+        feats_file = f"../data/day_with_test_hour/time_interval_stat/{day}.csv"
+        if os.path.exists(feats_file):
+            data_df = pd.concat([data_df, pd.read_csv(feats_file)], axis=1)
+        else:
+            if not os.path.exists("../data/day_with_test_hour/time_interval_stat"):
+                os.mkdir("../data/day_with_test_hour/time_interval_stat")
+            group_by_list = [
+                {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_app_n'},
+                {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_device_n'},
+                {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_os_n'},
+                {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_ch_n'},
+                {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptime_click_n'},
 
-            {'groupby': ['ip', 'click_time', 'device'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedevice_app_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceos_ch_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceos_click_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceosch_app_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosch_click_n'},
-            {'groupby': ['ip', 'click_time', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosapp_click_n'},
-            {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosch_app_n'},
-            {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosch_click_n'},
-            {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosapp_ch_n'},
-            {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosapp_click_n'},
-            {'groupby': ['ip', 'device', 'os', 'app', 'channel'], 'select': 'click_time', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosappch_click_n'},
+                {'groupby': ['ip', 'click_time', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimech_click_n'},
 
-            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceappch_os_n'},
-            {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceappch_click_n'},
-            {'groupby': ['ip', 'app', 'os', 'channel'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapposch_device_n'},
+                {'groupby': ['ip', 'click_time', 'device'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedevice_app_n'},
+                {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceos_ch_n'},
+                {'groupby': ['ip', 'click_time', 'device', 'os'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceos_click_n'},
+                {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptimedeviceosch_app_n'},
+                {'groupby': ['ip', 'click_time', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosch_click_n'},
+                {'groupby': ['ip', 'click_time', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'iptimedeviceosapp_click_n'},
+                {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosch_app_n'},
+                {'groupby': ['ip', 'device', 'os', 'channel'], 'select': 'app', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosch_click_n'},
+                {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceosapp_ch_n'},
+                {'groupby': ['ip', 'device', 'os', 'app'], 'select': 'channel', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosapp_click_n'},
+                {'groupby': ['ip', 'device', 'os', 'app', 'channel'], 'select': 'click_time', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceosappch_click_n'},
 
-            # {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
-            # {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
-            # {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
-            # {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_ch_ent'},
-        ]
-        for groupby in group_by_list:
-            gp = get_gp_from_dict(data_df, groupby)
-            data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
-            del gp
-            gc.collect()
+                {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipdeviceappch_os_n'},
+                {'groupby': ['ip', 'device', 'app', 'channel'], 'select': 'os', 'agg': 'count', 'agg_name': 'count', 'new': 'ipdeviceappch_click_n'},
+                {'groupby': ['ip', 'app', 'os', 'channel'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'ipapposch_device_n'},
+
+                # {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_app_ent'},
+                # {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_device_ent'},
+                # {'groupby': ['ip', 'click_time'], 'select': 'os', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_os_ent'},
+                # {'groupby': ['ip', 'click_time'], 'select': 'channel', 'agg': get_value_counts_entroy, 'agg_name': 'entropy', 'new': 'iptime_ch_ent'},
+            ]
+            new_feat_cols = []
+            for groupby in group_by_list:
+                gp = get_gp_from_dict(data_df, groupby)
+                data_df = data_df.merge(gp, on=groupby['groupby'], how='left')
+                del gp
+                gc.collect()
+                new_feat_cols.append(groupby['new'])
+            data_df[new_feat_cols].to_csv(feats_file, index=False)
         print(f"~ In add_time_interval_stat_way() df.cols={data_df.columns.values}")
         return data_df
 
@@ -310,22 +323,31 @@ class DataReader:
         print(f"~ In add_attributed_stat_way() df.cols={train_data_df.columns.values}")
         return train_data_df, test_data_df
 
-    def add_next_click_stat_way(self, data_df):
-        def calc_next_click(dt_ser):
-            return dt_ser.diff().shift(-1)
-        group_by_list = [
-            {'groupby': ['ip'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ip_next_n'},
-            {'groupby': ['ip', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipapp_next_n'},
-            {'groupby': ['ip', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipch_next_n'},
-            {'groupby': ['ip', 'os'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipos_next_n'},
-            {'groupby': ['ip', 'app', 'device', 'os', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipappdeviceosch_next_n'},
-            {'groupby': ['ip', 'os', 'device'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdevice_next_n'},
-            {'groupby': ['ip', 'os', 'device', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdeviceapp_next_n'},
-        ]
-        for groupby in group_by_list:
-            data_df[groupby['new']] = get_trans_from_dict(data_df, groupby)
-        del data_df['click_dt']
-        gc.collect()
+    def add_next_click_stat_way(self, data_df, day):
+        feats_file = f"../data/day_with_test_hour/next_click_stat/{day}.csv"
+        if os.path.exists(feats_file):
+            data_df = pd.concat([data_df, pd.read_csv(feats_file)], axis=1)
+        else:
+            if not os.path.exists("../data/day_with_test_hour/next_click_stat"):
+                os.mkdir("../data/day_with_test_hour/next_click_stat")
+            def calc_next_click(dt_ser):
+                return dt_ser.diff().shift(-1)
+            group_by_list = [
+                {'groupby': ['ip'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ip_next_n'},
+                {'groupby': ['ip', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipapp_next_n'},
+                {'groupby': ['ip', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipch_next_n'},
+                {'groupby': ['ip', 'os'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipos_next_n'},
+                {'groupby': ['ip', 'app', 'device', 'os', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipappdeviceosch_next_n'},
+                {'groupby': ['ip', 'os', 'device'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdevice_next_n'},
+                {'groupby': ['ip', 'os', 'device', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdeviceapp_next_n'},
+            ]
+            new_feat_cols = []
+            for groupby in group_by_list:
+                data_df[groupby['new']] = get_trans_from_dict(data_df, groupby)
+                new_feat_cols.append(groupby['new'])
+            del data_df['click_dt']
+            gc.collect()
+            data_df[new_feat_cols].to_csv(feats_file, index=False)
         print(f"~ In add_next_click_stat_way() df.cols={data_df.columns.values}")
         return data_df
 

@@ -118,3 +118,11 @@ data/day_with_test_hour/20171106_test_hour.csv
 output/
 model/hp_result/
 model/cv_result/
+data/day_with_test_hour/time_interval_stat/10.csv
+data/day_with_test_hour/next_click_stat/9.csv
+data/day_with_test_hour/next_click_stat/8.csv
+data/day_with_test_hour/next_click_stat/7.csv
+data/day_with_test_hour/next_click_stat/10.csv
+data/day_with_test_hour/time_interval_stat/9.csv
+data/day_with_test_hour/time_interval_stat/8.csv
+data/day_with_test_hour/time_interval_stat/7.csv

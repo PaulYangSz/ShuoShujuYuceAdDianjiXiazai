@@ -13,7 +13,7 @@ import gc
 import matplotlib.pyplot as plt
 import os
 
-debug=1 
+debug=0
 if debug:
     print('*** debug parameter set: this is a test run for debugging purposes ***')
 
@@ -84,14 +84,22 @@ def DO(frm,to,fileno):
             'click_id'      : 'uint32',
             }
 
-    print('loading train data...',frm,to)
-    train_df = pd.read_csv("../input/train.csv", parse_dates=['click_time'], skiprows=range(1,frm), nrows=to-frm, dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'is_attributed'])
+    print('[Fake]loading train data...',frm,to)
+    # train_df = pd.read_csv("../input/train.csv", parse_dates=['click_time'], skiprows=range(1,frm), nrows=to-frm, dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'is_attributed'])
+    # train_8_df = pd.read_csv("../data/day_with_test_hour/20171108_test_hour.csv", parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'is_attributed'])
+    # train_9_df = pd.read_csv("../data/day_with_test_hour/20171109_test_hour.csv", parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'is_attributed'])
+    # train_df = pd.concat([train_8_df, train_9_df], axis=0, ignore_index=True)
+    # del train_8_df, train_9_df
+    # gc.collect()
+    train_df = pd.read_csv("../data/day_with_test_hour/20171107_test_hour.csv", parse_dates=['click_time'],
+                           dtype=dtypes,
+                           usecols=['ip', 'app', 'device', 'os', 'channel', 'click_time', 'is_attributed'])
 
     print('loading test data...')
     if debug:
-        test_df = pd.read_csv("../input/test.csv", nrows=100000, parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'click_id'])
+        test_df = pd.read_csv("../data/test.csv", nrows=100000, parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'click_id'])
     else:
-        test_df = pd.read_csv("../input/test.csv", parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'click_id'])
+        test_df = pd.read_csv("../data/test.csv", parse_dates=['click_time'], dtype=dtypes, usecols=['ip','app','device','os', 'channel', 'click_time', 'click_id'])
 
     len_train = len(train_df)
     train_df = train_df.append(test_df)
