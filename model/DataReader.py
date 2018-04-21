@@ -94,6 +94,12 @@ def get_gp_from_dict(data_df, spec):
     return gp
 
 
+def get_trans_from_dict(data_df, spec):
+    Logger.info(f"GroupBy->Transform构造NextClick特征<{spec['new']}>: by={spec['groupby']}, select={spec['select']}, agg={spec['agg_name']}")
+    all_cols = spec['groupby'] + [spec['select']]
+    return data_df[all_cols].groupby(by=spec['groupby'])[spec['select']].transform(spec['agg']).dt.seconds.fillna(99999).astype(np.uint16)
+
+
 def get_value_counts_entroy(value_ser):
     proba = value_ser.value_counts().values
     if proba.size == 1:
@@ -115,6 +121,7 @@ def rate_calculation(x_attributed):
 class DataReader:
 
     def __init__(self, file_from:str, feats_construct:str, time_interval:str, verify_code: bool):
+        Logger.info(f"[DataReader]: file_from={file_from}, feats_construct={feats_construct}, time_interval={time_interval}, verify_code={verify_code}")
         self.file_from = file_from
         self.feats_construct = feats_construct
         self.time_interval = time_interval
@@ -198,7 +205,7 @@ class DataReader:
     def get_keras_input(self, dataframe):
         X = dict()
         for col in dataframe.columns:
-            if col not in ['ip', 'is_attributed', 'click_id']:
+            if col not in ['ip', 'is_attributed', 'click_id', 'click_dt']:
                 X[col] = np.array(dataframe[col])
         return X
 
@@ -217,11 +224,12 @@ class DataReader:
                 else:
                     pass
         data_df['click_time'] = pd.to_datetime(data_df['click_time'])
+        data_df['click_dt'] = data_df['click_time']
         data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate(self.time_interval, t)).astype('uint8')
         if model_name in ["LGB"]:
             data_df['click_time'] = data_df['click_time'].astype('category')
-        cols = self.int_cols[:5] + ['click_time', 'is_attributed'] if self.target in data_df.columns \
-            else self.int_cols[:5] + ['click_time', 'click_id']
+        cols = self.int_cols[:5] + ['click_time', 'click_dt', 'is_attributed'] if self.target in data_df.columns \
+            else self.int_cols[:5] + ['click_time', 'click_dt', 'click_id']
         self.simplest_bool = True
         return data_df[cols]
 
@@ -247,6 +255,7 @@ class DataReader:
     def add_time_interval_stat_way(self, data_df, model_name):
         data_df = self.simplest_way(data_df, model_name)
         # data_df = self.add_day_stat_way(data_df, model_name)
+        data_df = self.add_next_click_stat_way(data_df)
         group_by_list = [
             {'groupby': ['ip', 'click_time'], 'select': 'app', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_app_n'},
             {'groupby': ['ip', 'click_time'], 'select': 'device', 'agg': pd.Series.nunique, 'agg_name': 'nunique', 'new': 'iptime_device_n'},
@@ -300,6 +309,26 @@ class DataReader:
             gc.collect()
         print(f"~ In add_attributed_stat_way() df.cols={train_data_df.columns.values}")
         return train_data_df, test_data_df
+
+    def add_next_click_stat_way(self, data_df):
+        def calc_next_click(dt_ser):
+            return dt_ser.diff().shift(-1)
+        group_by_list = [
+            {'groupby': ['ip'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ip_next_n'},
+            {'groupby': ['ip', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipapp_next_n'},
+            {'groupby': ['ip', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipch_next_n'},
+            {'groupby': ['ip', 'os'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipos_next_n'},
+            {'groupby': ['ip', 'app', 'device', 'os', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipappdeviceosch_next_n'},
+            {'groupby': ['ip', 'os', 'device'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdevice_next_n'},
+            {'groupby': ['ip', 'os', 'device', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdeviceapp_next_n'},
+        ]
+        for groupby in group_by_list:
+            data_df[groupby['new']] = get_trans_from_dict(data_df, groupby)
+        del data_df['click_dt']
+        gc.collect()
+        print(f"~ In add_next_click_stat_way() df.cols={data_df.columns.values}")
+        return data_df
+
 
 
 

@@ -500,7 +500,7 @@ if __name__ == "__main__":
     # Continue to preprocess data
     need_label_cols = []
     for col in sample_df.columns:
-        if col.endswith('_click_n'):
+        if col.endswith('_click_n') or col.endswith('_next_n'):
             need_label_cols.append(col)
     with timer("Use LabelEncoder().fit_transform to continue process data"):
         sample_df, test_df = label_feats_and_set_max(sample_df, test_df, need_label_cols)
@@ -510,11 +510,11 @@ if __name__ == "__main__":
 
     only_submit = False
     if not only_submit:
-        try_add_each_feat = False
+        try_add_each_feat = True
         if try_add_each_feat:
             try_add_flag = True
-            attempt_cols = ['', 'ipapp_ch_n', 'ipapp_click_n', 'ipappos_ch_n', 'ipappos_click_n',
-                            'ipappdevice_ch_n', 'ipappdevice_click_n']
+            attempt_cols = ['', 'ip_next_n', 'ipapp_next_n', 'ipch_next_n', 'ipos_next_n',
+                            'ipappdeviceosch_next_n', 'iposdevice_next_n', 'iposdeviceapp_next_n']
             # attempt_cols = [''] + ALL_FEAT_COLS
             if try_add_flag:
                 for col in attempt_cols[1:]:
