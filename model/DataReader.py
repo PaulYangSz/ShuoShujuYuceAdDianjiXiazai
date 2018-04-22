@@ -326,6 +326,8 @@ class DataReader:
     def add_next_click_stat_way(self, data_df, day):
         feats_file = f"../data/day_with_test_hour/next_click_stat/{day}.csv"
         if os.path.exists(feats_file):
+            del data_df['click_dt']
+            gc.collect()
             data_df = pd.concat([data_df, pd.read_csv(feats_file, nrows=self.n_rows)], axis=1)
         else:
             if not os.path.exists("../data/day_with_test_hour/next_click_stat"):

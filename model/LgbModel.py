@@ -114,7 +114,7 @@ class LgbSkParamSelect():
                 'colsample_bytree': [0.9],  # np.arange(0.5, 1.001, 0.1),
                 'reg_alpha': [0.0],  # np.arange(0.0, 5.001, 0.5),
                 'reg_lambda': [0.0],  # np.arange(0.0, 5.001, 0.5),
-                'class_weight': 'balanced',
+                # 'class_weight': 'balanced',
             }
             self.fit_dict = {
                 'eval_metric': 'auc',
@@ -207,6 +207,7 @@ def show_hp_result(best_space_, trial_history_: Trials, hp_param_space, ouput_fi
 
 def grid_search_tuning_model(base_model, param_select, sample_df, cv_: list, target_name, search_switch):
     sample_X = sample_df.drop(target_name, axis=1)
+    param_select.fit_dict.update({'feature_name': list(sample_X.columns.values)})
     sample_y = sample_df[target_name]
     print(f'search_switch={search_switch}')
 
@@ -229,7 +230,7 @@ def grid_search_tuning_model(base_model, param_select, sample_df, cv_: list, tar
                                  verbose=10,  # 2 print [CV] param and time, 10 add print score
                                  return_train_score=True,
                                  refit=False)
-    clf.fit(sample_X, sample_y)
+    clf.fit(sample_X, sample_y, **param_select.fit_dict)
 
     pprint(clf.best_params_)
     return clf
@@ -340,7 +341,12 @@ if __name__ == '__main__':
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=True)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB")
+    del sample_df['ip']
+    print(f"########sample_df.shape={sample_df.shape}, and cols=\n{sample_df.columns}")
     test_df = data_reader.get_test_feats_df("LGB")
+    del test_df['ip']
+    gc.collect()
+    print(f"########test_df.shape={test_df.shape}, and cols=\n{test_df.columns}")
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
     tuning_type = 'sk'  # 'sk' or 'hp'
