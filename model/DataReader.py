@@ -223,14 +223,14 @@ class DataReader:
         for col in self.int_cols:
             if col in data_df.columns:
                 if model_name in ["LGB"]:
-                    data_df[col] = data_df[col].astype('category')
+                    pass  # data_df[col] = data_df[col].astype('category')
                 else:
                     pass
         data_df['click_time'] = pd.to_datetime(data_df['click_time'])
         data_df['click_dt'] = data_df['click_time']
         data_df['click_time'] = data_df['click_time'].map(lambda t: datetime2cate(self.time_interval, t)).astype('uint8')
         if model_name in ["LGB"]:
-            data_df['click_time'] = data_df['click_time'].astype('category')
+            pass  # data_df['click_time'] = data_df['click_time'].astype('category')
         cols = self.int_cols[:5] + ['click_time', 'click_dt', 'is_attributed'] if self.target in data_df.columns \
             else self.int_cols[:5] + ['click_time', 'click_dt', 'click_id']
         self.simplest_bool = True
@@ -262,7 +262,7 @@ class DataReader:
 
         feats_file = f"../data/day_with_test_hour/time_interval_stat/{day}.csv"
         if os.path.exists(feats_file):
-            data_df = pd.concat([data_df, pd.read_csv(feats_file)], axis=1)
+            data_df = pd.concat([data_df, pd.read_csv(feats_file, nrows=self.n_rows)], axis=1)
         else:
             if not os.path.exists("../data/day_with_test_hour/time_interval_stat"):
                 os.mkdir("../data/day_with_test_hour/time_interval_stat")
@@ -326,7 +326,7 @@ class DataReader:
     def add_next_click_stat_way(self, data_df, day):
         feats_file = f"../data/day_with_test_hour/next_click_stat/{day}.csv"
         if os.path.exists(feats_file):
-            data_df = pd.concat([data_df, pd.read_csv(feats_file)], axis=1)
+            data_df = pd.concat([data_df, pd.read_csv(feats_file, nrows=self.n_rows)], axis=1)
         else:
             if not os.path.exists("../data/day_with_test_hour/next_click_stat"):
                 os.mkdir("../data/day_with_test_hour/next_click_stat")

@@ -83,28 +83,44 @@ class LgbHpParamSelect():
         return tuning_list
 
 
+lgb_fixed_params = {
+    'max_bin': 100,  # Number of bucketed bin for feature values
+    'scale_pos_weight': 200  # because training data is extremely unbalanced
+}
+
+
 class LgbSkParamSelect():
     classifier_score = "roc_auc"
     rand_state = 20180401
     param_dict = dict()
+    fit_dict = dict()
 
     def __init__(self, space_name: str):
         if space_name == "default":
             self.name = space_name
             self.param_dict = {
-                'num_leaves': range(10, 110),
-                'max_depth': range(10, 50),
-                'learning_rate': np.arange(0.01, 1, 0.01),  # np.arange(0.1, 3, 0.2),
-                'n_estimators': range(50, 150, 10),  # range(100, 5000, 300),
+                'boosting_type': ['gbdt'],
+                'objective': ['binary'],
+                'num_leaves': [7],
+                'max_depth': [3],
+                'learning_rate': [0.2],  # np.arange(0.1, 3, 0.2),
+                'n_estimators': [1000],  # range(100, 5000, 300),
+                'subsample_for_bin': [200000],
                 'min_split_gain': [0.0],  # np.arange(0.0, 1, 0.1),
-                'min_child_weight': [0.01],  # np.arange(0.001, 1, 0.05),
-                'min_child_samples': [1],  # range(20, 100, 10),
-                'subsample': [0.9],  # np.arange(0.5, 1.001, 0.1),
-                'subsample_freq': [10],  # range(0, 100, 10),  # frequency for bagging
+                'min_child_weight': [0],  # np.arange(0.001, 1, 0.05),
+                'min_child_samples': [100],  # range(20, 100, 10),
+                'subsample': [0.7],  # np.arange(0.5, 1.001, 0.1),
+                'subsample_freq': [1],  # range(0, 100, 10),  # frequency for bagging
                 'colsample_bytree': [0.9],  # np.arange(0.5, 1.001, 0.1),
-                'reg_alpha': [0.5],  # np.arange(0.0, 5.001, 0.5),
+                'reg_alpha': [0.0],  # np.arange(0.0, 5.001, 0.5),
                 'reg_lambda': [0.0],  # np.arange(0.0, 5.001, 0.5),
                 'class_weight': 'balanced',
+            }
+            self.fit_dict = {
+                'eval_metric': 'auc',
+                'early_stopping_rounds': 30,
+                'feature_name': [],
+                'categorical_feature': ['app', 'device', 'os', 'channel', 'click_time'],
             }
         else:
             print("Wrong param_name in LgbParamSelect")
@@ -322,26 +338,28 @@ def show_CV_result(search_clf, adjust_paras, classifi_scoring, output_file: bool
 
 if __name__ == '__main__':
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='simplest', verify_code=True)
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=True)
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB")
+    test_df = data_reader.get_test_feats_df("LGB")
 
     # Use GridSearch to coarse tuning and HyperOpt to fine tuning
     tuning_type = 'sk'  # 'sk' or 'hp'
 
     # Define model and tuning
-    lgb_model = lgb.LGBMClassifier()
+    lgb_model = lgb.LGBMClassifier(**lgb_fixed_params)
     if tuning_type == 'sk':
         print('~Use sklearn GridSearch to tuning')
         param = LgbSkParamSelect("default")
         adjust_para_list = print_param(param)
         search_CV_model = grid_search_tuning_model(lgb_model, param, sample_df, cv_iterable, target_name,
-                                                   search_switch="random_search")
+                                                   search_switch="grid_search")  # random_search
 
         # See the CV result
         show_CV_result(search_CV_model, adjust_paras=adjust_para_list, classifi_scoring=param.classifier_score,
                        output_file=True)
 
         # Get best params model
+        search_CV_model.best_params_.update(lgb_fixed_params)
         best_model = lgb.LGBMClassifier(**search_CV_model.best_params_)
     else:
         param = LgbHpParamSelect("default")
@@ -359,6 +377,7 @@ if __name__ == '__main__':
             best_params = show_hp_result(best_space, trial_history, param.space_dict, ouput_file=True)
 
         # Get best params model
+        best_params.update(lgb_fixed_params)
         best_model = lgb.LGBMClassifier(**best_params)
 
     # Use best params to fit on sample dataset get LGB model
