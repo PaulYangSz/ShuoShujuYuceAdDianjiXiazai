@@ -508,7 +508,7 @@ if __name__ == "__main__":
     # Get model constant params
     FUNC_GET_KERAS_INPUT = data_reader.get_keras_input
 
-    only_submit = False
+    only_submit = True
     if not only_submit:
         try_add_each_feat = True
         if try_add_each_feat:

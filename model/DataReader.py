@@ -333,12 +333,7 @@ class DataReader:
             def calc_next_click(dt_ser):
                 return dt_ser.diff().shift(-1)
             group_by_list = [
-                {'groupby': ['ip'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ip_next_n'},
-                {'groupby': ['ip', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipapp_next_n'},
-                {'groupby': ['ip', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipch_next_n'},
-                {'groupby': ['ip', 'os'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipos_next_n'},
                 {'groupby': ['ip', 'app', 'device', 'os', 'channel'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'ipappdeviceosch_next_n'},
-                {'groupby': ['ip', 'os', 'device'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdevice_next_n'},
                 {'groupby': ['ip', 'os', 'device', 'app'], 'select': 'click_dt', 'agg': calc_next_click, 'agg_name': 'next_click', 'new': 'iposdeviceapp_next_n'},
             ]
             new_feat_cols = []
