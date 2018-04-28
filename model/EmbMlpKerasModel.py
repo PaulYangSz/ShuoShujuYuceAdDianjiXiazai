@@ -34,7 +34,7 @@ from sklearn.utils.validation import check_is_fitted, check_X_y
 
 from model.DataReader import DataReader, timer
 from model.LgbModel import print_param, grid_search_tuning_model, show_CV_result, \
-    hyperopt_tuning_model, show_hp_result, get_best_param_fitted_model
+    hyperopt_tuning_model, show_hp_result, get_best_param_fitted_model, save_test_result
 
 if platform.system() == 'Windows':
     N_CORE = 1
@@ -392,13 +392,6 @@ def use_best_pred_valid(best_params_, sample_df, cv_, target_name):
         Logger.info(f'Precision, recall, f1-score:\n{classification_report(y_true=valid_y, y_pred=y_pred)}')
         del best_model_
         gc.collect()
-
-
-def save_test_result(fitted_model, test_df, file_name):
-    sub_df = pd.DataFrame()
-    sub_df['click_id'] = test_df['click_id']  # .astype(np.int32)
-    sub_df['is_attributed'] = fitted_model.predict_proba(test_df)[:, 1]
-    sub_df.to_csv(file_name, index=False)  # , float_format='%.8f'
 
 
 def convert_feats_int_type(feat_ser):

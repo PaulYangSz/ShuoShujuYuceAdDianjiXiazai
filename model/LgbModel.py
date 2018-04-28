@@ -207,8 +207,12 @@ def show_hp_result(best_space_, trial_history_: Trials, hp_param_space, ouput_fi
 
 def grid_search_tuning_model(base_model, param_select, sample_df, cv_: list, target_name, search_switch):
     sample_X = sample_df.drop(target_name, axis=1)
-    param_select.fit_dict.update({'feature_name': list(sample_X.columns.values)})
     sample_y = sample_df[target_name]
+    if hasattr(param_select, 'fit_dict'):
+        assert len(cv_) == 1
+        param_select.fit_dict.update({'feature_name': list(sample_X.columns.values)})
+        param_select.fit_dict.update({'eval_set': (sample_X.iloc[cv_[0][1]], sample_y.iloc[cv_[0][1]])})
+        param_select.fit_dict.update({'eval_names': 'day9'})
     print(f'search_switch={search_switch}')
 
     if search_switch == "grid_search":
@@ -230,7 +234,11 @@ def grid_search_tuning_model(base_model, param_select, sample_df, cv_: list, tar
                                  verbose=10,  # 2 print [CV] param and time, 10 add print score
                                  return_train_score=True,
                                  refit=False)
-    clf.fit(sample_X, sample_y, **param_select.fit_dict)
+    if hasattr(param_select, 'fit_dict'):
+        clf.fit(sample_X, sample_y, **param_select.fit_dict)
+        # TODO: How to get the best_iteration_
+    else:
+        clf.fit(sample_X, sample_y)
 
     pprint(clf.best_params_)
     return clf
@@ -266,6 +274,8 @@ def show_feature_importance(lgb_model: lgb.LGBMClassifier, sample_df: pd.DataFra
     feats_name = list(sample_df.drop(target_name, axis=1).columns)
     importance = lgb_model.feature_importances_
     feats_ser = pd.Series(importance, index=feats_name)
+    feats_ser.sort_values(ascending=False, inplace=True)
+    Logger.info(f"LightGBM Features Importance: \n{feats_ser}")
     if platform.system() == 'Windows':
         feats_ser.plot(kind='barh', x='feature', y='fscore', legend=False, figsize=(17, 8))
         plt.title('LightGBM Feature Importance')
@@ -337,10 +347,18 @@ def show_CV_result(search_clf, adjust_paras, classifi_scoring, output_file: bool
             Logger.info("调参选择为%s: %r" % (param_name, search_clf.best_params_[param_name]))
 
 
+def save_test_result(fitted_model, test_df, file_name):
+    sub_df = pd.DataFrame()
+    sub_df['click_id'] = test_df['click_id'].copy()  # .astype(np.int32)
+    del test_df['click_id']
+    sub_df['is_attributed'] = fitted_model.predict_proba(test_df)[:, 1]
+    sub_df.to_csv(file_name, index=False)  # , float_format='%.8f'
+
+
 if __name__ == '__main__':
     # Get dataframe
-    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=True)
-    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB")
+    data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=False)
+    sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB", multi_fold=False)
     del sample_df['ip']
     print(f"########sample_df.shape={sample_df.shape}, and cols=\n{sample_df.columns}")
     test_df = data_reader.get_test_feats_df("LGB")
@@ -391,5 +409,9 @@ if __name__ == '__main__':
 
     # Show importance of features
     show_feature_importance(lgb_model, sample_df, target_name)
+
+    # Generate the test_result
+    file_name = "../output/cate_lgb_sub({}).csv".format(time.strftime("%Y.%m.%d-%H%M"))
+    save_test_result(lgb_model, test_df, file_name)
 
 

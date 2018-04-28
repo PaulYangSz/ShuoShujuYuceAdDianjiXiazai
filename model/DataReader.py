@@ -165,7 +165,7 @@ class DataReader:
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
-    def get_train_feats_df(self, model_name: str):
+    def get_train_feats_df(self, model_name: str, multi_fold: bool=True):
         with timer("Loading train csv files"):
             self.load_train()
         train_feat_df = pd.DataFrame()
@@ -180,7 +180,6 @@ class DataReader:
                 day += 1
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
-        multi_fold = True
         if multi_fold:
             index_start = 0
             for len_ in each_len:
