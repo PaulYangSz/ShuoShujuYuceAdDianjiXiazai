@@ -118,9 +118,9 @@ class LgbSkParamSelect():
             }
             self.fit_dict = {
                 'eval_metric': 'auc',
-                'early_stopping_rounds': 30,
+                # 'early_stopping_rounds': 30,
                 'feature_name': [],
-                'categorical_feature': ['app', 'device', 'os', 'channel', 'click_time'],
+                'categorical_feature': ['app', 'os', 'channel'],  # 'device', 'click_time'
             }
         else:
             print("Wrong param_name in LgbParamSelect")
@@ -358,12 +358,12 @@ def save_test_result(fitted_model, test_df, file_name):
 if __name__ == '__main__':
     # Get dataframe
     data_reader = DataReader(file_from='by_day__by_test_time', feats_construct='add_time_interval_stat', time_interval='test_2hour', verify_code=False)
-    rm_ratio = 0.5
+    rm_ratio = 0.0
     sample_df, cv_iterable, target_name = data_reader.get_train_feats_df("LGB", multi_fold=False, rm_ratio=rm_ratio)
-    del sample_df['ip']
+    # del sample_df['ip']
     print(f"########sample_df.shape={sample_df.shape}, and cols=\n{sample_df.columns}")
     test_df = data_reader.get_test_feats_df("LGB")
-    del test_df['ip']
+    # del test_df['ip']
     gc.collect()
     print(f"########test_df.shape={test_df.shape}, and cols=\n{test_df.columns}")
 

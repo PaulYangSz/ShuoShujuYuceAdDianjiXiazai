@@ -180,6 +180,11 @@ class DataReader:
                 del train_df
                 gc.collect()
                 day += 1
+        feats_select = ["app", "channel", "os", "iptimedeviceos_ch_n", "iposdeviceapp_next_n", "iptime_ch_n",
+                        "iptime_os_n", "iptime_click_n", "ipdeviceappch_click_n", "iptimedeviceos_click_n",
+                        "ipappdeviceosch_next_n", "ipdeviceappch_os_n", "ipdeviceosapp_click_n", "ipdeviceosapp_ch_n",
+                        'is_attributed']
+        train_feat_df = train_feat_df[feats_select]
         self.train_df_list = []
         cv_index_list = []  # [(train_idx, test_idx), (train_idx, test_idx), ...]
         if multi_fold:
@@ -214,7 +219,11 @@ class DataReader:
             test_df = self.construct_feats(self.test_df, model_name, 10)
             del self.test_df
             gc.collect()
-        return test_df
+        feats_select = ["app", "channel", "os", "iptimedeviceos_ch_n", "iposdeviceapp_next_n", "iptime_ch_n",
+                        "iptime_os_n", "iptime_click_n", "ipdeviceappch_click_n", "iptimedeviceos_click_n",
+                        "ipappdeviceosch_next_n", "ipdeviceappch_os_n", "ipdeviceosapp_click_n", "ipdeviceosapp_ch_n",
+                        'click_id']
+        return test_df[feats_select]
 
     def get_keras_input(self, dataframe):
         X = dict()
