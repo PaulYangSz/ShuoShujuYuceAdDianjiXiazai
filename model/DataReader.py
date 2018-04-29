@@ -14,6 +14,8 @@ import time
 import logging
 import logging.config
 
+from sklearn.model_selection import train_test_split
+
 
 def start_logging():
     pd.set_option('display.max_rows', 100)
@@ -165,7 +167,7 @@ class DataReader:
         else:
             print(f"!!! Wrong param['feats_construct'] = '{self.feats_construct}'")
 
-    def get_train_feats_df(self, model_name: str, multi_fold: bool=True):
+    def get_train_feats_df(self, model_name: str, multi_fold: bool=True, rm_ratio=0.5):
         with timer("Loading train csv files"):
             self.load_train()
         train_feat_df = pd.DataFrame()
@@ -188,11 +190,21 @@ class DataReader:
                 cv_index_list.append((train_idx, test_idx))
                 index_start += len_
         else:
-            index_start = each_len[0] + each_len[1]
-            len_ = each_len[2]
-            train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start + len_:].tolist())
-            test_idx = np.array(train_feat_df.index[index_start: index_start + len_].tolist())
-            cv_index_list.append((train_idx, test_idx))
+            if model_name == "LGB":
+                # Due to  memory limited, just use part of day 8 as train data, day 9 will be test data
+                day8_train_df = train_feat_df.iloc[each_len[0]:each_len[0]+each_len[1]].reset_index(drop=True)
+                day9_test_df = train_feat_df.iloc[each_len[0]+each_len[1]:].reset_index(drop=True)
+                day8_train_df, _ = train_test_split(day8_train_df, random_state=123, test_size=rm_ratio)
+                train_feat_df = pd.concat([day8_train_df, day9_test_df], axis=0, ignore_index=True)
+                train_idx = np.array(train_feat_df.index[:day8_train_df.shape[0]])
+                test_idx = np.array(train_feat_df.index[day8_train_df.shape[0]:])
+                cv_index_list.append((train_idx, test_idx))
+            else:
+                index_start = each_len[0] + each_len[1]
+                len_ = each_len[2]
+                train_idx = np.array(train_feat_df.index[0: index_start].tolist() + train_feat_df.index[index_start + len_:].tolist())
+                test_idx = np.array(train_feat_df.index[index_start: index_start + len_].tolist())
+                cv_index_list.append((train_idx, test_idx))
         return train_feat_df, cv_index_list, self.target
 
     def get_test_feats_df(self, model_name: str):
